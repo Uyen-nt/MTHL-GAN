@@ -2,41 +2,60 @@ import torch
 from torch import nn
 
 from model.utils import MaskedAttention
+from model.halo_model import HALOModel
 
 
-class GRU(nn.Module):
-    def __init__(self, code_num, hidden_dim, max_len, device=None):
+class HALOGeneratorCore(nn.Module):
+    """
+    Core generator dựa trên HALO thay cho GRU.
+    Sinh sequence multi-hot bằng Transformer + autoregressive head.
+    """
+    def __init__(self, halo_model, code_num, hidden_dim, max_len, device=None):
         super().__init__()
+        self.halo = halo_model                     # HALOModel đã khởi tạo sẵn
+        self.code_num = code_num
         self.hidden_dim = hidden_dim
         self.max_len = max_len
         self.device = device
 
-        self.gru_cell = nn.GRUCell(input_size=code_num, hidden_size=hidden_dim)
-        self.hidden2codes = nn.Sequential(
-            nn.Linear(hidden_dim, code_num),
-            nn.Sigmoid()
-        )
+        # ép chiều ẩn HALO (n_embd) về hidden_dim của MTGAN nếu khác
+        self.proj = nn.Linear(self.halo.transformer.n_embd, hidden_dim)
 
-    def step(self, x, h=None):
-        h_n = self.gru_cell(x, h)
-        codes = self.hidden2codes(h_n)
-        return codes, h_n
+    def forward(self, target_codes, lens):
+        """
+        Trả về:
+            probs   : (B, T, V)  xác suất mã
+            hiddens : (B, T, H)  ẩn (đã ép chiều)
+        """
+        B = len(lens)
+        V = self.code_num
+        T = self.max_len
+        device = self.device
 
-    def forward(self, noise):
-        codes = self.hidden2codes(noise)
-        h = torch.zeros(len(codes), self.hidden_dim, device=self.device)
-        samples, hiddens = [], []
-        for _ in range(self.max_len):
-            samples.append(codes)
-            codes, h = self.step(codes, h)
-            hiddens.append(h)
-        samples = torch.stack(samples, dim=1)
-        hiddens = torch.stack(hiddens, dim=1)
+        # tạo input trống
+        x = torch.zeros(B, T, V, device=device)
+        # neo target code đầu tiên vào visit[0]
+        x[torch.arange(B), 0, target_codes] = 1.0
 
-        return samples, hiddens
+        # chạy HALO
+        hidden_states = self.halo.transformer(x)                     # (B, T, E)
+        code_probs = self.halo.ehr_head(hidden_states, x).sigmoid()  # (B, T-1, V)
+
+        # đệm timestep đầu cho khớp T
+        probs = torch.zeros(B, T, V, device=device)
+        probs[:, 0, :] = x[:, 0, :]
+        probs[:, 1:, :] = code_probs
+
+        # chiếu hidden về hidden_dim cho Critic
+        hiddens = self.proj(hidden_states)
+        return probs, hiddens
 
 
 class SmoothCondition(nn.Module):
+    """
+    Giữ nguyên để tăng xác suất mã mục tiêu.
+    Có thể bỏ nếu HALO đã học tốt quan hệ này.
+    """
     def __init__(self, code_num, attention_dim):
         super().__init__()
         self.attention = MaskedAttention(code_num, attention_dim)
