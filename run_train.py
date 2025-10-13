@@ -42,7 +42,7 @@ def train(args):
         total_vocab_size=code_num              # số mã ICD/procedure tổng cộng
     )
     halo_model = HALOModel(config).to(device)
-    base_gru = BaseHALO(halo_model, max_len=max_len, hidden_dim=args.hidden_dim)
+    base_gru = BaseHALO(halo_model, max_len=max_len, hidden_dim=hidden_dim)
     try:
         base_gru.load(params_path)
     except FileNotFoundError:
