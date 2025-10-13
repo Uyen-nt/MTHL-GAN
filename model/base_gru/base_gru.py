@@ -14,8 +14,7 @@ class BaseHALO(BaseModel):
 
     def forward(self, x):
         # HALO trả (B, T-1, V) → đệm timestep đầu để khớp PredictNextLoss
-        with torch.no_grad():
-            code_probs = self.halo(x)
+        code_probs = self.halo(x)
         B, T, V = x.shape
         out = torch.zeros(B, T, V, device=x.device)
         out[:, 0, :] = x[:, 0, :]
