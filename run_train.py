@@ -5,6 +5,8 @@ import numpy as np
 
 from config import get_training_args, get_paths
 from model import Generator, Critic, BaseHALO
+from model.halo_model import HALOModel
+from model.generator.generator import Generator
 from trainer import GANTrainer, BaseGRUTrainer
 from datautils.dataloader import load_code_name_map, load_meta_data, get_train_test_loader, get_base_gru_train_loader
 
@@ -38,7 +40,7 @@ def train(args):
         base_gru_trainer.train()
     base_gru.eval()
 
-    generator = Generator(code_num=code_num,
+    generator = Generator(halo_model, code_num=code_num,
                           hidden_dim=args.g_hidden_dim,
                           attention_dim=args.g_attention_dim,
                           max_len=max_len,
