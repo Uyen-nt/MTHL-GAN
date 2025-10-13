@@ -60,6 +60,15 @@ def _parse_generate_setting(parser):
     group.add_argument('--number', default=6000, type=int)
     group.add_argument('--upper_bound', default=1e7, type=int)
 
+def _parse_halo_setting(parser):
+    group = parser.add_argument_group('halo', 'halo model setting')
+    group.add_argument('--halo_n_layer', default=6, type=int, help='Number of Transformer layers')
+    group.add_argument('--halo_n_embd', default=256, type=int, help='Embedding/hidden dimension')
+    group.add_argument('--halo_n_head', default=8, type=int, help='Number of attention heads')
+    group.add_argument('--halo_n_ctx', default=128, type=int, help='Context length / sequence length')
+    group.add_argument('--halo_n_positions', default=128, type=int, help='Max positional embeddings')
+    group.add_argument('--halo_layer_norm_epsilon', default=1e-5, type=float)
+
 
 def get_preprocess_args():
     parser = argparse.ArgumentParser(description='Parameters for Data Preprocess')
