@@ -83,6 +83,7 @@ def get_training_args():
     parser = argparse.ArgumentParser(description='Parameters for training MTGAN')
     _parse_base_setting(parser)
     _parse_model_structure_setting(parser)
+    _parse_halo_setting(parser)
     _parse_base_gru_setting(parser)
     _parse_gan_training_setting(parser)
     _parse_log_setting(parser)
