@@ -43,7 +43,7 @@ def _parse_gan_training_setting(parser):
 def _parse_base_gru_setting(parser):
     group = parser.add_argument_group('base_gru_training', 'base gru training setting')
     group.add_argument('--base_gru_epochs', default=50, type=int)
-    group.add_argument('--base_gru_lr', default=1e-3, type=float)
+    group.add_argument('--base_gru_lr', default=1e-4, type=float)
 
 
 def _parse_log_setting(parser):
