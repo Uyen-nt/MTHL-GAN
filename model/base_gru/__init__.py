@@ -1,2 +1,2 @@
-from .base_gru import BaseGRU
+from .base_halo import BaseHALO
 from .loss import PredictNextLoss
