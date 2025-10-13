@@ -10,6 +10,8 @@ from model.generator.generator import Generator
 from trainer import GANTrainer, BaseGRUTrainer
 from datautils.dataloader import load_code_name_map, load_meta_data, get_train_test_loader, get_base_gru_train_loader
 
+from types import SimpleNamespace
+
 
 def count_model_params(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -30,6 +32,15 @@ def train(args):
     code_num = len(code_adj)
     len_dist = torch.from_numpy(len_dist).to(device)
 
+    config = SimpleNamespace(
+        n_layer=args.halo_n_layer,
+        n_embd=args.halo_n_embd,               # đồng bộ hidden_dim
+        n_head=args.halo_n_head,
+        n_ctx=args.halo_n_ctx,
+        n_positions=args.halo_n_positions,
+        layer_norm_epsilon=args.halo_layer_norm_epsilon,
+        total_vocab_size=code_num              # số mã ICD/procedure tổng cộng
+    )
     halo_model = HALOModel(config).to(device)
     base_gru = BaseHALO(halo_model, max_len=args.max_len, hidden_dim=args.hidden_dim)
     try:
