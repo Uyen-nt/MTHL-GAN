@@ -5,24 +5,26 @@ from model.base_model import BaseModel
 from model.utils import sequence_mask
 
 
-class BaseGRU(BaseModel):
-    def __init__(self, code_num, hidden_dim, max_len):
-        super().__init__(param_file_name='base_gru.pt')
-        self.gru = nn.GRU(input_size=code_num, hidden_size=hidden_dim, batch_first=True)
-        self.linear = nn.Sequential(
-            nn.Linear(hidden_dim, code_num),
-            nn.Sigmoid()
-        )
+class BaseHALO(BaseModel):
+    def __init__(self, halo_model, max_len, hidden_dim):
+        super().__init__(param_file_name="base_halo.pt")
+        self.halo = halo_model
         self.max_len = max_len
+        self.proj = nn.Linear(halo_model.transformer.n_embd, hidden_dim)  # ép về cùng kích thước GRU cũ
 
     def forward(self, x):
-        outputs, _ = self.gru(x)
-        output = self.linear(outputs)
-        return output
+        # HALO trả (B, T-1, V) → đệm timestep đầu để khớp PredictNextLoss
+        with torch.no_grad():
+            code_probs = self.halo(x)
+        B, T, V = x.shape
+        out = torch.zeros(B, T, V, device=x.device)
+        out[:, 0, :] = x[:, 0, :]
+        out[:, 1:, :] = code_probs
+        return out
 
     def calculate_hidden(self, x, lens):
         with torch.no_grad():
-            mask = sequence_mask(lens, self.max_len).unsqueeze(dim=-1)
-            outputs, _ = self.gru(x)
-            output = outputs * mask
-            return output
+            mask = sequence_mask(lens, self.max_len).unsqueeze(-1)
+            hidden = self.halo.transformer(x)  # (B, T, E)
+            hidden = self.proj(hidden) * mask  # ép E→hidden_dim
+            return hidden
