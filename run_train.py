@@ -4,7 +4,7 @@ import torch
 import numpy as np
 
 from config import get_training_args, get_paths
-from model import Generator, Critic, BaseGRU
+from model import Generator, Critic, BaseHALO
 from trainer import GANTrainer, BaseGRUTrainer
 from datautils.dataloader import load_code_name_map, load_meta_data, get_train_test_loader, get_base_gru_train_loader
 
@@ -28,7 +28,8 @@ def train(args):
     code_num = len(code_adj)
     len_dist = torch.from_numpy(len_dist).to(device)
 
-    base_gru = BaseGRU(code_num=code_num, hidden_dim=args.g_hidden_dim, max_len=max_len).to(device)
+    halo_model = HALOModel(config).to(device)
+    base_gru = BaseHALO(halo_model, max_len=args.max_len, hidden_dim=args.hidden_dim)
     try:
         base_gru.load(params_path)
     except FileNotFoundError:
