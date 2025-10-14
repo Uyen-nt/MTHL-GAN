@@ -53,7 +53,7 @@ def train(args):
     # 📦 Load đúng dataset: hier hoặc single
     # ======================================================
     if hier_mode:
-        hier_data_path = os.path.join(dataset_path, "standard_hier", "real_data_dual")
+        hier_data_path = os.path.join(dataset_path, "standard_hier", "real_data")
         print(f"📂 Loading hierarchical dual dataset from: {hier_data_path}")
         train_loader, test_loader, max_len = get_train_test_loader(hier_data_path, args.batch_size, device)
     else:
