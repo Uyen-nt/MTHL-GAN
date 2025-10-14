@@ -71,6 +71,7 @@ def _parse_halo_setting(parser):
 
 
 def get_preprocess_args():
+    parser.add_argument('--dual', action='store_true', help='build hierarchical diag+proc dataset')
     parser = argparse.ArgumentParser(description='Parameters for Data Preprocess')
     _parse_base_setting(parser)
     _parse_preprocess_setting(parser)
