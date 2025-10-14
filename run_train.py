@@ -122,7 +122,8 @@ def train(args):
     trainer = GANTrainer(args,
                          generator=generator, critic=critic, base_gru=base_gru,
                          train_loader=train_loader, test_loader=test_loader,
-                         len_dist=len_dist, code_map=code_map, code_name_map=code_name_map,
+                         len_dist=len_dist,
+                         code_map=icode_map, code_name_map=code_name_map,
                          records_path=records_path, params_path=params_path)
     trainer.train()
 
