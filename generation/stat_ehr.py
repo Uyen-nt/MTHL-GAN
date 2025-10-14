@@ -21,7 +21,12 @@ def code_count(data, lens, icode_map):
             admission = patient[i]
             codes = np.where(admission > 0)[0]
             for code in codes:
-                count[icode_map[code]] = count.get(icode_map[code], 0) + 1
+                if code in icode_map:
+                    code_name = icode_map[code]
+                else:
+                    code_name = f"UNK_{code}"  # fallback cho code không có trong map
+                count[code_name] = count.get(code_name, 0) + 1
+
     sorted_count = sorted(count.items(), key=lambda item: item[1], reverse=True)
     return sorted_count
 
