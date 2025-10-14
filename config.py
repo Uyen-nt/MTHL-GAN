@@ -98,7 +98,8 @@ def get_generate_args():
     _parse_base_setting(parser)
     _parse_model_structure_setting(parser)
     _parse_generate_setting(parser)
-
+    _parse_halo_setting(parser) 
+    
     args = parser.parse_args()
     return args
 
