@@ -23,7 +23,7 @@ class BaseHALO(BaseModel):
 
     def calculate_hidden(self, x, lens):
         with torch.no_grad():
-            mask = sequence_mask(lens, self.max_len).unsqueeze(-1)
+            mask = sequence_mask(lens, self.max_len).unsqueeze(-1).to(x.device)
             hidden = self.halo.transformer(x)  # (B, T, E)
             hidden = self.proj(hidden) * mask  # ép E→hidden_dim
             return hidden
