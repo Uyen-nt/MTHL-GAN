@@ -5,11 +5,13 @@ import numpy as np
 
 from preprocess.parse_csv import Mimic3Parser, Mimic4Parser
 from preprocess.encode import encode_concept
-from preprocess.build_dataset import split_patients
+from preprocess.encode import encode_dual_concept
+from preprocess.build_dataset import split_patients, build_real_data_dual
 from preprocess.build_dataset import build_code_xy, build_heart_failure_y, build_real_data, build_real_next_xy, build_visit_x
 from preprocess.auxiliary import generate_code_code_adjacent, real_data_stat, generate_code_levels
 from config import get_preprocess_args
 
+import json
 
 PARSERS = {
     'mimic3': Mimic3Parser,
@@ -178,4 +180,57 @@ if __name__ == '__main__':
                         code_visit_dist=code_visit_dist,
                         code_patient_dist=code_patient_dist)
     #
+
+    # ============================================================
+    # 🧩 [NEW] BUILD HIERARCHICAL DATASET (DIAG + PROC)
+    # ============================================================
+    if args.dual or getattr(args, "hierarchical", False):
+        print("\n🧩 Building hierarchical dataset (diagnoses + procedures)...")
+    
+        # 1. Parse thêm thủ thuật nếu chưa có
+        if not hasattr(parser, "admission_procedures") or parser.admission_procedures is None:
+            print("\tParsing PROCEDURES_ICD.csv ...")
+            parser.parse_procedures()
+            parser.calibrate_patient_by_admission()
+            parser.calibrate_admission_by_patient()
+    
+        # 2. Encode cả diag + proc
+        admission_codes_encoded_dual, code_map_dual, Vd, Vp = encode_dual_concept(
+            patient_admission, parser.admission_codes, parser.admission_procedures
+        )
+    
+        # 3. Build dữ liệu hierarchical
+        (train_real_data_x_dual, train_real_data_lens_dual), \
+        (test_real_data_x_dual, test_real_data_lens_dual), \
+        code_map_dual, Vd, Vp = build_real_data_dual(
+            patient_admission, parser.admission_codes, parser.admission_procedures
+        )
+    
+        V = len(code_map_dual)
+        print(f"\t[dual] Vd={Vd}, Vp={Vp}, total V={V}")
+        print(f"\t[dual] train={train_real_data_x_dual.shape}, test={test_real_data_x_dual.shape}")
+    
+        # 4. Lưu chuẩn sang standard_hier/
+        standard_hier = os.path.join(dataset_path, "standard_hier")
+        os.makedirs(standard_hier, exist_ok=True)
+        real_data_path_hier = os.path.join(standard_hier, "real_data")
+        os.makedirs(real_data_path_hier, exist_ok=True)
+    
+        np.savez_compressed(os.path.join(real_data_path_hier, "train.npz"),
+                            x=train_real_data_x_dual, lens=train_real_data_lens_dual)
+        np.savez_compressed(os.path.join(real_data_path_hier, "test.npz"),
+                            x=test_real_data_x_dual, lens=test_real_data_lens_dual)
+    
+        hier_meta = {
+            "Vd": Vd,
+            "Vp": Vp,
+            "V": V,
+            "code_map": code_map_dual,
+        }
+        with open(os.path.join(standard_hier, "hier_meta.json"), "w") as f:
+            json.dump(hier_meta, f)
+    
+        print(f"✅ Saved hierarchical dataset to {standard_hier}")
+    # ============================================================
+
     np.savez_compressed(os.path.join(standard_path, 'code_adj.npz'), code_adj=code_adj)
