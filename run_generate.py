@@ -3,6 +3,7 @@ import random
 
 import torch
 import numpy as np
+import json
 
 from config import get_generate_args, get_paths
 from model import Generator
@@ -66,6 +67,23 @@ def generate(args):
     print('saving {} synthetic data...'.format(args.number))
     synthetic_path = os.path.join(args.result_path, 'synthetic_{}.npz'.format(args.dataset))
     np.savez_compressed(synthetic_path, x=fake_x, lens=fake_lens)
+    
+    # ======================================================
+    # 🧩 Hierarchical mode: tách bệnh (diag) và thủ thuật (proc)
+    # ======================================================
+    
+    hier_meta_path = os.path.join(dataset_path, "standard_hier", "hier_meta.json")
+    if os.path.exists(hier_meta_path):
+        print("🔍 Found hierarchical metadata, splitting diag/proc...")
+        meta = json.load(open(hier_meta_path))
+        Vd, Vp = meta["Vd"], meta["Vp"]
+        diag = fake_x[:, :, :Vd]
+        proc = fake_x[:, :, Vd:]
+        hier_path = os.path.join(args.result_path, f"synthetic_{args.dataset}_hier.npz")
+        np.savez_compressed(hier_path, diag=diag, proc=proc, lens=fake_lens)
+        print(f"✅ Saved hierarchical synthetic data: {hier_path}")
+        print(f"   → diag shape: {diag.shape}, proc shape: {proc.shape}")
+
 
 
 if __name__ == '__main__':
