@@ -68,18 +68,31 @@ class DataSampler:
                 valid_lines.append(line)
                 valid_codes.append(code)
             except StopIteration:
-                # Nếu code này chưa có sample nào, bỏ qua
+                # Code chưa có sample nào -> skip
                 continue
     
-        if len(valid_lines) == 0:
-            # nếu tất cả đều rỗng, fallback lấy ngẫu nhiên từ toàn dataset
-            valid_lines = np.random.choice(len(self.ehr_data), size=len(target_codes), replace=True)
-            print("⚠️ Warning: all target codes empty, fallback to random sampling")
+        # Nếu số lượng valid < yêu cầu, bổ sung ngẫu nhiên
+        if len(valid_lines) < len(target_codes):
+            needed = len(target_codes) - len(valid_lines)
+            extra_idx = np.random.choice(len(self.ehr_data), size=needed, replace=True)
+            valid_lines.extend(extra_idx)
+            valid_codes.extend(np.random.choice(target_codes, size=needed, replace=True))
     
+        # Cắt về cùng độ dài
+        min_len = min(len(valid_lines), len(valid_codes))
+        valid_lines = valid_lines[:min_len]
+        valid_codes = valid_codes[:min_len]
+    
+        # --- tạo batch thật ---
         data, lens = self.ehr_data[valid_lines], self.lens[valid_lines]
         data = torch.from_numpy(data).to(self.device, dtype=torch.float)
         lens = torch.from_numpy(lens).to(self.device, torch.long)
-        return data, lens
+    
+        # Đảm bảo đồng bộ batch
+        target_codes = torch.tensor(valid_codes, dtype=torch.long, device=self.device)
+    
+        return data, lens, target_codes
+
 
 
 def get_train_sampler(train_loader, device, code_num=None):
