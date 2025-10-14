@@ -1,18 +1,21 @@
 import random
-
 import torch
 import numpy as np
+import json
+import os
+from types import SimpleNamespace
 
 from config import get_training_args, get_paths
 from model import Generator, Critic, BaseHALO
 from model.halo_model import HALOModel
 from model.generator.generator import Generator
 from trainer import GANTrainer, BaseGRUTrainer
-from datautils.dataloader import load_code_name_map, load_meta_data, get_train_test_loader, get_base_gru_train_loader
-
-from types import SimpleNamespace
-import json
-import os
+from datautils.dataloader import (
+    load_code_name_map,
+    load_meta_data,
+    get_train_test_loader,
+    get_base_gru_train_loader,
+)
 
 
 def count_model_params(model):
@@ -23,17 +26,16 @@ def train(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     dataset_path, records_path, params_path = get_paths(args)
-    
+
     # ======================================================
-    # 🧩 Hierarchical mode: đọc thông tin vocab từ hier_meta.json
+    # 🧩 1. Kiểm tra hierarchical mode
     # ======================================================
-  
     hier_meta_path = os.path.join(dataset_path, "standard_hier", "hier_meta.json")
-    if os.path.exists(hier_meta_path):
+    hier_mode = os.path.exists(hier_meta_path)
+    if hier_mode:
         print("🔍 Found hierarchical metadata, loading hier_meta.json ...")
         with open(hier_meta_path) as f:
             meta = json.load(f)
@@ -41,30 +43,39 @@ def train(args):
         Vd = meta["Vd"]
         Vp = meta["Vp"]
         print(f"    → Using hierarchical vocab: total={code_num}, diag={Vd}, proc={Vp}")
-        hier_mode = True
     else:
-        hier_mode = False
+        Vd, Vp, code_num = 0, 0, None
 
-    # Load code map (diagnoses)
-    _, _, _, code_adj, code_map = load_meta_data(dataset_path)
-    
-    # Extend for hierarchical
+    # ======================================================
+    # 📦 2. Load metadata & code map
+    # ======================================================
+    len_dist, code_visit_dist, code_patient_dist, code_adj, code_map = load_meta_data(dataset_path)
+    code_name_map = load_code_name_map(args.data_path)
+
+    # Đảo key/value nếu code_map là {str: int}
+    if isinstance(list(code_map.keys())[0], str):
+        inv_code_map = {v: k for k, v in code_map.items()}
+    else:
+        inv_code_map = code_map
+
+    # ======================================================
+    # 🧩 3. Mở rộng map trong hierarchical mode
+    # ======================================================
     if hier_mode:
         print("🧩 Extending code_map for hierarchical (diag + proc)...")
-        icode_map = {i: code_map[i] for i in range(Vd)}  # 0..2868 = diagnoses
-        # Add fake mapping for procedures
+        icode_map = {}
+        # Phần bệnh
+        for i in range(Vd):
+            icode_map[i] = inv_code_map.get(i, f"DIAG_{i}")
+        # Phần thủ thuật
         for i in range(Vd, Vd + Vp):
             icode_map[i] = f"PROC_{i - Vd}"
     else:
-        icode_map = code_map
-
-
-    len_dist, code_visit_dist, code_patient_dist, code_adj, code_map = load_meta_data(dataset_path)
-    code_name_map = load_code_name_map(args.data_path)
-    train_loader, test_loader, max_len = get_train_test_loader(dataset_path, args.batch_size, device)
+        icode_map = inv_code_map
+        code_num = len(code_adj)
 
     # ======================================================
-    # 📦 Load đúng dataset: hier hoặc single
+    # 📂 4. Load dataset đúng mode
     # ======================================================
     if hier_mode:
         hier_data_path = os.path.join(dataset_path, "standard_hier", "real_data")
@@ -72,32 +83,30 @@ def train(args):
         train_loader, test_loader, max_len = get_train_test_loader(hier_data_path, args.batch_size, device)
     else:
         print("📂 Loading standard single-diagnosis dataset ...")
-        train_loader, test_loader, max_len = get_train_test_loader(
-            os.path.join(dataset_path, "standard", "real_data"),
-            args.batch_size, device
-        )
+        data_path_std = os.path.join(dataset_path, "standard", "real_data")
+        train_loader, test_loader, max_len = get_train_test_loader(data_path_std, args.batch_size, device)
 
-        
     len_dist = torch.from_numpy(len_dist).to(device)
 
+    # ======================================================
+    # 🧠 5. Tạo HALO + BaseHALO
+    # ======================================================
     config = SimpleNamespace(
         n_layer=args.halo_n_layer,
-        n_embd=args.halo_n_embd,               # đồng bộ hidden_dim
+        n_embd=args.halo_n_embd,
         n_head=args.halo_n_head,
         n_ctx=args.halo_n_ctx,
         n_positions=args.halo_n_positions,
         layer_norm_epsilon=args.halo_layer_norm_epsilon,
-        total_vocab_size=code_num              # số mã ICD/procedure tổng cộng
+        total_vocab_size=code_num,
     )
+
     halo_model = HALOModel(config).to(device)
     base_gru = BaseHALO(halo_model, max_len=max_len, hidden_dim=args.g_hidden_dim).to(device)
+
     if hier_mode:
-        # ❶ Dual mode: BỎ pre-train vì real_next (dual) chưa có, và vocab=3686 ≠ 2869
         print("⏭️  Hierarchical mode: skip BaseHALO pretraining (no dual real_next).")
-        # (tuỳ chọn) vẫn lưu file rỗng để lần sau load cho nhanh
-        # base_gru.save(params_path)  # sẽ lưu 'base_halo.pt' rỗng
     else:
-        # ❷ Single mode: giữ logic cũ (có 'standard/real_next') → có thể pretrain
         try:
             base_gru.load(params_path)
         except FileNotFoundError:
@@ -105,26 +114,44 @@ def train(args):
             base_gru_trainer = BaseGRUTrainer(args, base_gru, max_len, base_gru_trainloader, params_path)
             base_gru_trainer.train()
     base_gru.eval()
-    
 
-    generator = Generator(halo_model, code_num=code_num,
-                          hidden_dim=args.g_hidden_dim,
-                          attention_dim=args.g_attention_dim,
-                          max_len=max_len,
-                          device=device).to(device)
-    critic = Critic(code_num=code_num,
-                    hidden_dim=args.c_hidden_dim,
-                    generator_hidden_dim=args.g_hidden_dim,
-                    max_len=max_len).to(device)
+    # ======================================================
+    # ⚙️ 6. Generator & Critic
+    # ======================================================
+    generator = Generator(
+        halo_model,
+        code_num=code_num,
+        hidden_dim=args.g_hidden_dim,
+        attention_dim=args.g_attention_dim,
+        max_len=max_len,
+        device=device,
+    ).to(device)
+
+    critic = Critic(
+        code_num=code_num,
+        hidden_dim=args.c_hidden_dim,
+        generator_hidden_dim=args.g_hidden_dim,
+        max_len=max_len,
+    ).to(device)
 
     print('Param number:', count_model_params(generator) + count_model_params(critic))
 
-    trainer = GANTrainer(args,
-                         generator=generator, critic=critic, base_gru=base_gru,
-                         train_loader=train_loader, test_loader=test_loader,
-                         len_dist=len_dist,
-                         code_map=icode_map, code_name_map=code_name_map,
-                         records_path=records_path, params_path=params_path)
+    # ======================================================
+    # 🚀 7. Train GAN
+    # ======================================================
+    trainer = GANTrainer(
+        args,
+        generator=generator,
+        critic=critic,
+        base_gru=base_gru,
+        train_loader=train_loader,
+        test_loader=test_loader,
+        len_dist=len_dist,
+        code_map=icode_map,
+        code_name_map=code_name_map,
+        records_path=records_path,
+        params_path=params_path,
+    )
     trainer.train()
 
 
