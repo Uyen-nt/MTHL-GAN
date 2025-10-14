@@ -34,16 +34,40 @@ def code_count(data, lens, icode_map):
 def get_top_k_disease(data, lens, icode_map, code_name_map, top_k=10, file=None):
     count = code_count(data, lens, icode_map)
     print('--------------------------------------------------', file=file)
+
     sufix = ['0', '00', '1', '01', '2']
+
     for cid, num in count[:top_k]:
+        # Nếu không có trong map thì thử các hậu tố (giống code gốc)
         if cid not in code_name_map:
+            found = False
             for x in sufix:
                 if cid + x in code_name_map:
                     cid = cid + x
+                    found = True
                     break
-        print(code_name_map[cid], ';', num, file=file)
+
+            # Nếu vẫn không thấy, gán nhãn fallback tùy theo dạng mã
+            if not found:
+                if str(cid).startswith("PROC_"):
+                    code_name = f"Procedure #{cid.split('_')[1]}"
+                elif str(cid).startswith("UNK_"):
+                    code_name = "Unknown code"
+                else:
+                    code_name = str(cid)
+                print(f"{code_name}; {num}", file=file)
+                continue
+
+        # Nếu có trong map (sau khi kiểm tra sufix)
+        try:
+            code_name = code_name_map[cid]
+        except KeyError:
+            code_name = str(cid)
+        print(f"{code_name}; {num}", file=file)
+
     print('--------------------------------------------------', file=file)
     return count
+
 
 
 def normalized_distance(dist1, dist2):
