@@ -1,6 +1,7 @@
 import numpy as np
 
 from preprocess.parse_csv import EHRParser
+from preprocess.encode import encode_dual_concept
 
 
 def split_patients(patient_admission, admission_codes, code_map, train_num, seed=6669):
@@ -46,6 +47,41 @@ def build_real_data(pids, patient_admission, admission_codes_encoded, max_admiss
         lens[i] = len(admissions)
     print('\r\t%d / %d' % (len(pids), len(pids)))
     return x, lens
+
+def build_real_data_dual(patient_admission, admission_diagnoses, admission_procedures, train_ratio=0.8, seed=42):
+    """
+    Build dữ liệu chuẩn hóa (x, lens) gồm cả bệnh và thủ thuật.
+    """
+    # encode cả 2 loại code
+    admission_concept_encoded, code_map, Vd, Vp = encode_dual_concept(patient_admission, admission_diagnoses, admission_procedures)
+    code_num = len(code_map)
+
+    # chia train/test
+    pids = list(patient_admission.keys())
+    np.random.seed(seed)
+    np.random.shuffle(pids)
+    n_train = int(len(pids) * train_ratio)
+    train_pids = pids[:n_train]
+    test_pids = pids[n_train:]
+
+    max_admission_num = max(len(patient_admission[pid]) for pid in patient_admission)
+
+    # build matrix
+    def _build(pids):
+        x = np.zeros((len(pids), max_admission_num, code_num), dtype=bool)
+        lens = np.zeros((len(pids),), dtype=int)
+        for i, pid in enumerate(pids):
+            admissions = patient_admission[pid]
+            for k, admission in enumerate(admissions):
+                codes = admission_concept_encoded[admission['adm_id']]
+                x[i, k, codes] = 1
+            lens[i] = len(admissions)
+        return x, lens
+
+    x_train, lens_train = _build(train_pids)
+    x_test, lens_test = _build(test_pids)
+
+    return (x_train, lens_train), (x_test, lens_test), code_map, Vd, Vp
 
 
 def build_code_xy(real_data, real_lens):
