@@ -58,9 +58,25 @@ class DataSampler:
         return code_samples
 
     def sample(self, target_codes):
-        # Lấy dòng dữ liệu tương ứng với các mã code cho batch
-        lines = np.array([next(self.code_samples[code]) for code in target_codes])
-        data, lens = self.ehr_data[lines], self.lens[lines]
+        valid_lines = []
+        valid_codes = []
+    
+        for code in target_codes:
+            sampler = self.code_samples[code]
+            try:
+                line = next(sampler)
+                valid_lines.append(line)
+                valid_codes.append(code)
+            except StopIteration:
+                # Nếu code này chưa có sample nào, bỏ qua
+                continue
+    
+        if len(valid_lines) == 0:
+            # nếu tất cả đều rỗng, fallback lấy ngẫu nhiên từ toàn dataset
+            valid_lines = np.random.choice(len(self.ehr_data), size=len(target_codes), replace=True)
+            print("⚠️ Warning: all target codes empty, fallback to random sampling")
+    
+        data, lens = self.ehr_data[valid_lines], self.lens[valid_lines]
         data = torch.from_numpy(data).to(self.device, dtype=torch.float)
         lens = torch.from_numpy(lens).to(self.device, torch.long)
         return data, lens
