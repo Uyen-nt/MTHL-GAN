@@ -21,9 +21,10 @@ class CodeSampleIter:
 
 
 class DataSampler:
-    def __init__(self, ehr_data, lens, device=None):
+    def __init__(self, ehr_data, lens, code_num, device=None):
         self.ehr_data = ehr_data
         self.lens = lens
+        self.code_num = code_num
         self.device = device
 
         self.size = len(ehr_data)
@@ -54,6 +55,11 @@ class DataSampler:
         return data, lens
 
 
-def get_train_sampler(train_loader, device):
-    data_sampler = DataSampler(*train_loader.dataset.data, device)
+def get_train_sampler(train_loader, device, code_num=None):
+    # Lấy số chiều thật sự của code từ dữ liệu nếu không truyền vào
+    if code_num is None:
+        x, _ = train_loader.dataset.data
+        code_num = x.shape[-1]
+        print(f"📊 Auto-detected code_num = {code_num}")
+    data_sampler = DataSampler(*train_loader.dataset.data, code_num, device)
     return data_sampler
