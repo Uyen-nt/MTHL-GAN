@@ -12,6 +12,7 @@ from datautils.dataloader import load_code_name_map, load_meta_data, get_train_t
 
 from types import SimpleNamespace
 import json
+import os
 
 
 def count_model_params(model):
