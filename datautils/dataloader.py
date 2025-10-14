@@ -50,7 +50,10 @@ class DataLoader:
 
 
 def get_train_test_loader(dataset_path, batch_size, device):
-    dataset = DatasetReal(os.path.join(dataset_path, 'standard', 'real_data'), device=device)
+    if "standard_hier" in dataset_path:
+        dataset = DatasetReal(dataset_path, device=device)
+    else:
+        dataset = DatasetReal(os.path.join(dataset_path, 'standard', 'real_data'), device=device)
     train_loader = DataLoader(dataset.train_set, shuffle=True, batch_size=batch_size)
     test_loader = DataLoader(dataset.test_set, shuffle=False, batch_size=batch_size)
     max_len = dataset.train_set.data[0].shape[1]
