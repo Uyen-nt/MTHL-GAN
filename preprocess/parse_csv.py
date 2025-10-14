@@ -174,7 +174,7 @@ class Mimic3Parser(EHRParser):
         return filename, cols, converter
 
     def set_procedure(self):
-        filename = 'D_ICD_PROCEDURES.csv'
+        filename = 'PROCEDURES_ICD.csv'  # <-- đây mới là file chứa SUBJECT_ID, HADM_ID
         cols = {self.pid_col: 'SUBJECT_ID', self.adm_id_col: 'HADM_ID', self.cid_col: 'ICD9_CODE'}
         converter = {'SUBJECT_ID': int, 'HADM_ID': int, 'ICD9_CODE': str}
         return filename, cols, converter
