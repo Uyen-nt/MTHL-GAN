@@ -11,6 +11,7 @@ from trainer import GANTrainer, BaseGRUTrainer
 from datautils.dataloader import load_code_name_map, load_meta_data, get_train_test_loader, get_base_gru_train_loader
 
 from types import SimpleNamespace
+import json
 
 
 def count_model_params(model):
@@ -25,11 +26,31 @@ def train(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     dataset_path, records_path, params_path = get_paths(args)
+    
+    # ======================================================
+    # 🧩 Hierarchical mode: đọc thông tin vocab từ hier_meta.json
+    # ======================================================
+  
+    hier_meta_path = os.path.join(dataset_path, "standard_hier", "hier_meta.json")
+    if os.path.exists(hier_meta_path):
+        print("🔍 Found hierarchical metadata, loading hier_meta.json ...")
+        with open(hier_meta_path) as f:
+            meta = json.load(f)
+        code_num = meta["V"]
+        Vd = meta["Vd"]
+        Vp = meta["Vp"]
+        print(f"    → Using hierarchical vocab: total={code_num}, diag={Vd}, proc={Vp}")
+        hier_mode = True
+    else:
+        hier_mode = False
+
     len_dist, code_visit_dist, code_patient_dist, code_adj, code_map = load_meta_data(dataset_path)
     code_name_map = load_code_name_map(args.data_path)
     train_loader, test_loader, max_len = get_train_test_loader(dataset_path, args.batch_size, device)
 
-    code_num = len(code_adj)
+    if not hier_mode:
+        code_num = len(code_adj)
+        
     len_dist = torch.from_numpy(len_dist).to(device)
 
     config = SimpleNamespace(
