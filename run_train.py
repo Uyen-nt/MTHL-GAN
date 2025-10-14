@@ -49,8 +49,20 @@ def train(args):
     code_name_map = load_code_name_map(args.data_path)
     train_loader, test_loader, max_len = get_train_test_loader(dataset_path, args.batch_size, device)
 
-    if not hier_mode:
-        code_num = len(code_adj)
+    # ======================================================
+    # 📦 Load đúng dataset: hier hoặc single
+    # ======================================================
+    if hier_mode:
+        hier_data_path = os.path.join(dataset_path, "standard_hier", "real_data_dual")
+        print(f"📂 Loading hierarchical dual dataset from: {hier_data_path}")
+        train_loader, test_loader, max_len = get_train_test_loader(hier_data_path, args.batch_size, device)
+    else:
+        print("📂 Loading standard single-diagnosis dataset ...")
+        train_loader, test_loader, max_len = get_train_test_loader(
+            os.path.join(dataset_path, "standard", "real_data"),
+            args.batch_size, device
+        )
+
         
     len_dist = torch.from_numpy(len_dist).to(device)
 
