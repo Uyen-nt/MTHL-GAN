@@ -11,6 +11,9 @@ from datautils.dataset import DatasetReal
 from generation.generate import generate_ehr, get_required_number
 from generation.stat_ehr import get_basic_statistics, get_top_k_disease, calc_distance
 
+from model.halo_model import HALOModel
+from types import SimpleNamespace
+
 
 def generate(args):
     random.seed(args.seed)
@@ -73,11 +76,24 @@ def generate(args):
     else:
         param_file_name = f'generator.{args.use_iteration}.pt'
 
-    generator = Generator(code_num=code_num,
-                          hidden_dim=args.g_hidden_dim,
-                          attention_dim=args.g_attention_dim,
-                          max_len=max_len,
-                          device=device).to(device)
+    config = SimpleNamespace(
+        n_layer=args.halo_n_layer,
+        n_embd=args.halo_n_embd,
+        n_head=args.halo_n_head,
+        n_ctx=args.halo_n_ctx,
+        n_positions=args.halo_n_positions,
+        layer_norm_epsilon=args.halo_layer_norm_epsilon,
+        total_vocab_size=code_num
+    )
+    
+    halo_model = HALOModel(config).to(device)
+    
+    generator = Generator(halo_model,
+                      code_num=code_num,
+                      hidden_dim=args.g_hidden_dim,
+                      attention_dim=args.g_attention_dim,
+                      max_len=max_len,
+                      device=device).to(device)
     generator.load(params_path, param_file_name)
 
     # ======================================================
