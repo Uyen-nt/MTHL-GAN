@@ -16,6 +16,7 @@ def _parse_preprocess_setting(parser):
     group.add_argument('--from_saved', action='store_true')
     group.add_argument('--train_num', default=6000, type=int)
     group.add_argument('--sample_num', default=10000, type=int, help='for mimic4')
+    parser.add_argument('--dual', action='store_true', help='build hierarchical diag+proc dataset')
 
 
 def _parse_model_structure_setting(parser):
@@ -71,7 +72,6 @@ def _parse_halo_setting(parser):
 
 
 def get_preprocess_args():
-    parser.add_argument('--dual', action='store_true', help='build hierarchical diag+proc dataset')
     parser = argparse.ArgumentParser(description='Parameters for Data Preprocess')
     _parse_base_setting(parser)
     _parse_preprocess_setting(parser)
