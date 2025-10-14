@@ -37,7 +37,7 @@ class GANTrainer:
     def train(self):
         for i in range(1, self.iters + 1):
             target_codes = self.generator.get_target_codes(self.batch_size)
-            real_data, real_lens = self.train_sampler.sample(target_codes)
+            real_data, real_lens, target_codes = self.train_sampler.sample(target_codes)
 
             d_loss, w_distance = self.d_trainer.step(real_data, real_lens, target_codes)
             g_loss = self.g_trainer.step(target_codes, real_lens)
