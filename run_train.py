@@ -77,13 +77,21 @@ def train(args):
     )
     halo_model = HALOModel(config).to(device)
     base_gru = BaseHALO(halo_model, max_len=max_len, hidden_dim=args.g_hidden_dim).to(device)
-    try:
-        base_gru.load(params_path)
-    except FileNotFoundError:
-        base_gru_trainloader = get_base_gru_train_loader(dataset_path, args.batch_size, device)
-        base_gru_trainer = BaseGRUTrainer(args, base_gru, max_len, base_gru_trainloader, params_path)
-        base_gru_trainer.train()
+    if hier_mode:
+        # ❶ Dual mode: BỎ pre-train vì real_next (dual) chưa có, và vocab=3686 ≠ 2869
+        print("⏭️  Hierarchical mode: skip BaseHALO pretraining (no dual real_next).")
+        # (tuỳ chọn) vẫn lưu file rỗng để lần sau load cho nhanh
+        # base_gru.save(params_path)  # sẽ lưu 'base_halo.pt' rỗng
+    else:
+        # ❷ Single mode: giữ logic cũ (có 'standard/real_next') → có thể pretrain
+        try:
+            base_gru.load(params_path)
+        except FileNotFoundError:
+            base_gru_trainloader = get_base_gru_train_loader(dataset_path, args.batch_size, device)
+            base_gru_trainer = BaseGRUTrainer(args, base_gru, max_len, base_gru_trainloader, params_path)
+            base_gru_trainer.train()
     base_gru.eval()
+    
 
     generator = Generator(halo_model, code_num=code_num,
                           hidden_dim=args.g_hidden_dim,
