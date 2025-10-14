@@ -45,6 +45,20 @@ def train(args):
     else:
         hier_mode = False
 
+    # Load code map (diagnoses)
+    _, _, _, code_adj, code_map = load_meta_data(dataset_path)
+    
+    # Extend for hierarchical
+    if hier_mode:
+        print("🧩 Extending code_map for hierarchical (diag + proc)...")
+        icode_map = {i: code_map[i] for i in range(Vd)}  # 0..2868 = diagnoses
+        # Add fake mapping for procedures
+        for i in range(Vd, Vd + Vp):
+            icode_map[i] = f"PROC_{i - Vd}"
+    else:
+        icode_map = code_map
+
+
     len_dist, code_visit_dist, code_patient_dist, code_adj, code_map = load_meta_data(dataset_path)
     code_name_map = load_code_name_map(args.data_path)
     train_loader, test_loader, max_len = get_train_test_loader(dataset_path, args.batch_size, device)
