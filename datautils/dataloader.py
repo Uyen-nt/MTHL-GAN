@@ -50,16 +50,32 @@ class DataLoader:
 
 
 def get_train_test_loader(dataset_path, batch_size, device):
-    if "standard_hier" in dataset_path:
-        dataset = DatasetReal(dataset_path, device=device)
-    else:
-        dataset = DatasetReal(os.path.join(dataset_path, 'standard', 'real_data'), device=device)
-    train_loader = DataLoader(dataset.train_set, shuffle=True, batch_size=batch_size)
-    test_loader = DataLoader(dataset.test_set, shuffle=False, batch_size=batch_size)
-    max_len = dataset.train_set.data[0].shape[1]
+    """
+    Load train/test dataloader cho cả 2 chế độ:
+      - Normal (standard/real_data)
+      - Hierarchical dual (standard_hier/real_data)
+    """
 
-    print('total code num in train:', dataset.train_set.data[0].sum())
-    print('total code num in test:', dataset.test_set.data[0].sum())
+    # --- Xác định đường dẫn thật ---
+    if "standard_hier" in dataset_path:
+        data_dir = dataset_path  # đã là folder chứa train/test.npz
+        print(f"📦 [Dual Hierarchical] Using dataset at: {data_dir}")
+    else:
+        data_dir = os.path.join(dataset_path, "standard", "real_data")
+        print(f"📦 [Single Diagnosis] Using dataset at: {data_dir}")
+
+    # --- Load dataset ---
+    dataset = DatasetReal(data_dir, device=device)
+
+    # --- Tạo DataLoader ---
+    train_loader = DataLoader(dataset.train_set, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(dataset.test_set, batch_size=batch_size, shuffle=False)
+
+    # --- Kiểm tra và in kích thước ---
+    sample_x, _ = next(iter(train_loader))
+    print(f"✅ Sample batch shape: {tuple(sample_x.shape)}")
+
+    max_len = sample_x.shape[1]
     return train_loader, test_loader, max_len
 
 
