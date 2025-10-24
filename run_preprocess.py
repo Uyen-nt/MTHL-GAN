@@ -210,11 +210,17 @@ if __name__ == '__main__':
         print(f"\t[dual] Vd={Vd}, Vp={Vp}, total V={V}")
         print(f"\t[dual] train={train_real_data_x_dual.shape}, test={test_real_data_x_dual.shape}")
     
-        # 4. Lưu chuẩn sang standard_hier/
+        # 4. Lưu sang standard_hier/
         standard_hier = os.path.join(dataset_path, "standard_hier")
         os.makedirs(standard_hier, exist_ok=True)
         real_data_path_hier = os.path.join(standard_hier, "real_data")
         os.makedirs(real_data_path_hier, exist_ok=True)
+
+        np.savez_compressed(os.path.join(real_data_path_hier, "train.npz"),
+                            x=train_real_data_x_dual, lens=train_real_data_lens_dual)
+        np.savez_compressed(os.path.join(real_data_path_hier, "test.npz"),
+                            x=test_real_data_x_dual, lens=test_real_data_lens_dual)
+        print("✅ Saved dual train/test to standard_hier/real_data")
 
         # ============================================================
         # Tạo dual real_next cho BaseHALO pretraining
