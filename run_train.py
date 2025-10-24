@@ -10,6 +10,7 @@ from model import Generator, Critic, BaseHALO
 from model.halo_model import HALOModel
 from model.generator.generator import Generator
 from trainer import GANTrainer, BaseGRUTrainer
+from self_supervised_trainer import SelfSupervisedTrainer
 from datautils.dataloader import (
     load_code_name_map,
     load_meta_data,
