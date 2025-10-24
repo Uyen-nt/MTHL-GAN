@@ -20,6 +20,16 @@ class WGANGPLoss(nn.Module):
 
     def get_gradient_penalty(self, real_data, real_hiddens, fake_data, fake_hiddens, lens):
         batch_size = len(real_data)
+        T_r, T_f = real_data.size(1), fake_data.size(1)
+        if T_r != T_f:
+            T_min = min(T_r, T_f)
+            real_data = real_data[:, :T_min, :]
+            fake_data = fake_data[:, :T_min, :]
+            real_hiddens = real_hiddens[:, :T_min, :]
+            fake_hiddens = fake_hiddens[:, :T_min, :]
+            lens = torch.clamp(lens, max=T_min)
+        else:
+            T_min = T_r
         with torch.no_grad():
             alpha = torch.rand((batch_size, 1, 1)).to(real_data.device)
             interpolates_data = alpha * real_data + (1 - alpha) * fake_data
@@ -35,3 +45,4 @@ class WGANGPLoss(nn.Module):
         gradient_penalty = (gradients.norm(2, dim=1) - 1) ** 2
         gradient_penalty = gradient_penalty.mean() * self.lambda_
         return gradient_penalty
+
