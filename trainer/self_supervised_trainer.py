@@ -33,12 +33,20 @@ class SelfSupervisedTrainer:
         self.base_halo.train()
         for epoch in range(1, self.epochs + 1):
             losses = []
-            for x, _ in tqdm(self.dataloader, desc=f"Epoch {epoch}"):
+            
+            for batch in tqdm(self.dataloader, desc=f"Epoch {epoch}"):
+                # Hỗ trợ (x), (x, lens), (x, y) hoặc (x, lens, y)
+                if isinstance(batch, (list, tuple)):
+                    x = batch[0]
+                else:
+                    x = batch
+            
                 x = x.to(self.device, dtype=torch.float)
                 x_masked, mask = self.mask_inputs(x)
-
+            
                 logits = self.base_halo(x_masked)  # [B, T, V]
                 loss = self.criterion(logits[mask], x[mask])
+
 
                 self.opt.zero_grad()
                 loss.backward()
