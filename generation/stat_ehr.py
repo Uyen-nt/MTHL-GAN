@@ -71,7 +71,7 @@ def get_top_k_disease(data, lens, icode_map, code_name_map, top_k=10, file=None)
 
 
 def normalized_distance(dist1, dist2):
-    dist = np.abs(dist1 - dist2) / ((dist1 + dist2) / 2)
+    dist = np.abs(dist1 - dist2) / (((dist1 + dist2) / 2) + 1e-8)
     dist = dist.mean()
     return dist
 
