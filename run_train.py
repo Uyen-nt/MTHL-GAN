@@ -159,7 +159,7 @@ def train(args):
         args,
         generator=generator,
         critic=critic,
-        base_gru=base_gru,
+        base_gru=base_halo,
         train_loader=train_loader,
         test_loader=test_loader,
         len_dist=len_dist,
