@@ -215,6 +215,41 @@ if __name__ == '__main__':
         os.makedirs(standard_hier, exist_ok=True)
         real_data_path_hier = os.path.join(standard_hier, "real_data")
         os.makedirs(real_data_path_hier, exist_ok=True)
+
+        # ============================================================
+        # Tạo dual real_next cho BaseHALO pretraining
+        # ============================================================
+        if args.dual:
+            print("\n🧠 Building hierarchical real_next data (for BaseHALO pretraining)...")
+        
+            hier_path = os.path.join(dataset_path, "standard_hier")
+            os.makedirs(os.path.join(hier_path, "real_next"), exist_ok=True)
+        
+            # Load real dual data (chuẩn one-hot 3686 chiều)
+            train_dual = np.load(os.path.join(hier_path, "real_data", "train.npz"))
+            X_dual, lens_dual = train_dual["x"], train_dual["lens"]
+        
+            # Build X, Y (shift one step) cho bài toán dự đoán visit kế tiếp
+            X_next = []
+            Y_next = []
+            lens_next = []
+            for x_i, len_i in zip(X_dual, lens_dual):
+                if len_i < 2:
+                    continue
+                X_next.append(x_i[:len_i - 1])
+                Y_next.append(x_i[1:len_i])
+                lens_next.append(len_i - 1)
+        
+            X_next = np.stack(X_next)
+            Y_next = np.stack(Y_next)
+            lens_next = np.array(lens_next)
+        
+            np.savez_compressed(
+                os.path.join(hier_path, "real_next", "train.npz"),
+                x=X_next, y=Y_next, lens=lens_next
+            )
+            print(f"✅ Saved dual real_next for BaseHALO: {X_next.shape}, vocab={X_next.shape[-1]}")
+
     
         np.savez_compressed(os.path.join(real_data_path_hier, "train.npz"),
                             x=train_real_data_x_dual, lens=train_real_data_lens_dual)
