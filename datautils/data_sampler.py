@@ -99,7 +99,14 @@ def get_train_sampler(train_loader, device, code_num=None):
     """
     Tự động lấy code_num từ shape nếu không truyền vào
     """
-    x, lens = train_loader.dataset.data
+    data_tuple = train_loader.dataset.data
+    if isinstance(data_tuple, (list, tuple)):
+        x = data_tuple[0]
+        lens = data_tuple[1]
+    else:
+        x = data_tuple
+        lens = None
+    # Tự động xác định code_num nếu chưa truyền
     if code_num is None:
         code_num = x.shape[-1]
         print(f"📊 Auto-detected code_num = {code_num}")
