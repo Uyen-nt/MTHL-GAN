@@ -21,6 +21,17 @@ class Critic(BaseModel):
         )
 
     def forward(self, x, hiddens, lens):
+        # Giả định: x shape = (B, T, V), hiddens shape = (B, T', H)
+        T, T_h = x.size(1), hiddens.size(1)
+        
+        # Pad hoặc cắt hiddens cho khớp với x
+        if T_h < T:
+            pad_len = T - T_h
+            pad = torch.zeros(hiddens.size(0), pad_len, hiddens.size(2), device=hiddens.device)
+            hiddens = torch.cat([hiddens, pad], dim=1)
+        elif T_h > T:
+            hiddens = hiddens[:, :T, :]
+        
         output = torch.cat([x, hiddens], dim=-1)
         output = self.linear(output).squeeze(dim=-1)
 
