@@ -72,7 +72,7 @@ def _parse_halo_setting(parser):
 
 def _parse_halo_warmup_setting(parser):
     group = parser.add_argument_group('halo_warmup', 'BaseHALO self-supervised pretraining setting')
-    group.add_argument('--halo_warmup_epochs', default=10, type=int,
+    group.add_argument('--halo_warmup_epochs', default=5, type=int,
                        help='Number of epochs for BaseHALO self-supervised warm-up')
     group.add_argument('--halo_mask_ratio', default=0.15, type=float,
                        help='Mask ratio for self-supervised masked code modeling')
