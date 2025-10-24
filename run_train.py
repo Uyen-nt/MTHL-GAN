@@ -119,7 +119,7 @@ def train(args):
     train_loader = DataLoader(real_next_dataset.train_set, shuffle=True, batch_size=args.batch_size)
     
     # 🧠 Warm-up HALO trước khi đưa vào Critic
-    trainer = SelfSupervisedTrainer(
+    halo_trainer = SelfSupervisedTrainer(
         base_halo,
         train_loader,
         device,
@@ -128,7 +128,7 @@ def train(args):
         lr=1e-4,
         epochs=args.halo_warmup_epochs if hasattr(args, "halo_warmup_epochs") else 10,
     )
-    trainer.train()
+    halo_trainer.train()
     base_halo.eval()
 
 
