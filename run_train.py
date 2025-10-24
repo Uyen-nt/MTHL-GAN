@@ -89,7 +89,7 @@ def train(args):
     len_dist = torch.from_numpy(len_dist).to(device)
 
     # ======================================================
-    # 🧠 5. Tạo HALO + BaseHALO
+    # 🧠 5. Tạo và Warm-up BaseHALO
     # ======================================================
     config = SimpleNamespace(
         n_layer=args.halo_n_layer,
@@ -100,20 +100,36 @@ def train(args):
         layer_norm_epsilon=args.halo_layer_norm_epsilon,
         total_vocab_size=code_num,
     )
-
+    
     halo_model = HALOModel(config).to(device)
-    base_gru = BaseHALO(halo_model, max_len=max_len, hidden_dim=args.g_hidden_dim).to(device)
+    base_halo = BaseHALO(halo_model, max_len=max_len, hidden_dim=args.g_hidden_dim).to(device)
+    
+    # 🧩 Dữ liệu pretrain (real_next từ dual dataset)
+    hier_realnext_path = os.path.join(dataset_path, "standard_hier", "real_next", "train.npz")
+    if not os.path.exists(hier_realnext_path):
+        raise FileNotFoundError(f"❌ Missing hierarchical real_next: {hier_realnext_path}")
+    
+    from datautils.dataset import DatasetRealNext
+    from datautils.dataloader import DataLoader
+    from self_supervised_trainer import SelfSupervisedTrainer
+    
+    print(f"📚 Loading hierarchical real_next data from {hier_realnext_path}")
+    real_next_dataset = DatasetRealNext(os.path.dirname(hier_realnext_path), device=device)
+    train_loader = DataLoader(real_next_dataset.train_set, shuffle=True, batch_size=args.batch_size)
+    
+    # 🧠 Warm-up HALO trước khi đưa vào Critic
+    trainer = SelfSupervisedTrainer(
+        base_halo,
+        train_loader,
+        device,
+        params_path,
+        mask_ratio=0.15,
+        lr=1e-4,
+        epochs=args.halo_warmup_epochs if hasattr(args, "halo_warmup_epochs") else 10,
+    )
+    trainer.train()
+    base_halo.eval()
 
-    if hier_mode:
-        print("⏭️  Hierarchical mode: skip BaseHALO pretraining (no dual real_next).")
-    else:
-        try:
-            base_gru.load(params_path)
-        except FileNotFoundError:
-            base_gru_trainloader = get_base_gru_train_loader(dataset_path, args.batch_size, device)
-            base_gru_trainer = BaseGRUTrainer(args, base_gru, max_len, base_gru_trainloader, params_path)
-            base_gru_trainer.train()
-    base_gru.eval()
 
     # ======================================================
     # ⚙️ 6. Generator & Critic
