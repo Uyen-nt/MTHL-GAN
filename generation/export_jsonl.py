@@ -34,9 +34,12 @@ def export_jsonl(hier_npz_path, diag_vocab_json=None, proc_vocab_json=None, out_
     print(f"💾 Writing to {out_path} ...")
     with open(out_path, "w", encoding="utf8") as f:
         for pid in range(n_patients):
+            if top_k_visit and pid >= top_k_visit:
+                break
+
             visits = []
             for vid in range(int(lens[pid])):
-                # Lấy các mã có giá trị > 0
+                # ✅ Lấy các mã có giá trị > 0 (sửa lỗi i,t)
                 diag_codes = np.where(diag[pid, vid] > 0)[0].tolist()
                 proc_codes = np.where(proc[pid, vid] > 0.05)[0].tolist()
 
