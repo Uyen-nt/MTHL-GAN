@@ -70,6 +70,15 @@ def _parse_halo_setting(parser):
     group.add_argument('--halo_n_positions', default=128, type=int, help='Max positional embeddings')
     group.add_argument('--halo_layer_norm_epsilon', default=1e-5, type=float)
 
+def _parse_halo_warmup_setting(parser):
+    group = parser.add_argument_group('halo_warmup', 'BaseHALO self-supervised pretraining setting')
+    group.add_argument('--halo_warmup_epochs', default=10, type=int,
+                       help='Number of epochs for BaseHALO self-supervised warm-up')
+    group.add_argument('--halo_mask_ratio', default=0.15, type=float,
+                       help='Mask ratio for self-supervised masked code modeling')
+    group.add_argument('--halo_warmup_lr', default=1e-4, type=float,
+                       help='Learning rate for BaseHALO warm-up')
+
 
 def get_preprocess_args():
     parser = argparse.ArgumentParser(description='Parameters for Data Preprocess')
@@ -85,6 +94,7 @@ def get_training_args():
     _parse_base_setting(parser)
     _parse_model_structure_setting(parser)
     _parse_halo_setting(parser)
+    _parse_halo_warmup_setting(parser)
     _parse_base_gru_setting(parser)
     _parse_gan_training_setting(parser)
     _parse_log_setting(parser)
