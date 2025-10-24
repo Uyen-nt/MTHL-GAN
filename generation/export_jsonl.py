@@ -41,7 +41,7 @@ def export_jsonl(hier_npz_path, diag_vocab_json=None, proc_vocab_json=None, out_
             for vid in range(int(lens[pid])):
                 # ✅ Lấy các mã có giá trị > 0 (sửa lỗi i,t)
                 diag_codes = np.where(diag[pid, vid] > 0)[0].tolist()
-                proc_codes = np.where(proc[pid, vid] > 0.05)[0].tolist()
+                proc_codes = np.where(proc[pid, vid] > 0.0005)[0].tolist()
 
                 # Map index -> mã thật (nếu có vocab)
                 diag_codes = [diag_vocab[i] if diag_vocab and i in diag_vocab else f"DIAG_{i}" for i in diag_codes]
