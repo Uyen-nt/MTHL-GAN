@@ -245,16 +245,25 @@ if __name__ == '__main__':
                 X_next.append(x_i[:len_i - 1])
                 Y_next.append(x_i[1:len_i])
                 lens_next.append(len_i - 1)
+
+            # Pad tất cả sequence về cùng độ dài
+            max_len_next = max(lens_next)
+            V = X_dual.shape[-1]
+            X_next_padded = np.zeros((len(X_next), max_len_next, V), dtype=np.float32)
+            Y_next_padded = np.zeros((len(Y_next), max_len_next, V), dtype=np.float32)
         
-            X_next = np.stack(X_next)
-            Y_next = np.stack(Y_next)
-            lens_next = np.array(lens_next)
+            for i, (x_i, y_i, l_i) in enumerate(zip(X_next, Y_next, lens_next)):
+                X_next_padded[i, :l_i] = x_i[:l_i]
+                Y_next_padded[i, :l_i] = y_i[:l_i]
         
             np.savez_compressed(
-                os.path.join(hier_path, "real_next", "train.npz"),
-                x=X_next, y=Y_next, lens=lens_next
+                os.path.join(standard_hier, "real_next", "train.npz"),
+                x=X_next_padded,
+                y=Y_next_padded,
+                lens=np.array(lens_next)
             )
-            print(f"✅ Saved dual real_next for BaseHALO: {X_next.shape}, vocab={X_next.shape[-1]}")
+            print(f"✅ Saved dual real_next for BaseHALO: {X_next_padded.shape}, vocab={V}")
+    
 
     
         np.savez_compressed(os.path.join(real_data_path_hier, "train.npz"),
