@@ -36,7 +36,19 @@ class Critic(BaseModel):
         output = self.linear(output).squeeze(dim=-1)
 
         mask = sequence_mask(lens, self.max_len)
+
+        if mask.size(1) != output.size(1):
+            # Pad hoặc cắt mask cho khớp với output
+            if mask.size(1) < output.size(1):
+                pad_len = output.size(1) - mask.size(1)
+                pad = torch.ones(mask.size(0), pad_len, device=mask.device)
+                mask = torch.cat([mask, pad], dim=1)
+            else:
+                mask = mask[:, :output.size(1)]
+        
         output = output * mask
         output = output.sum(dim=-1)
-        output = output / lens
+        # Dùng độ dài thực tế để tránh chia sai nếu cắt
+        valid_lens = mask.sum(dim=-1)
+        output = output / valid_lens.clamp(min=1)
         return output
