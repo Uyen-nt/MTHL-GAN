@@ -112,8 +112,7 @@ def train(args):
     
     from datautils.dataset import DatasetRealNext
     from datautils.dataloader import DataLoader
-    from self_supervised_trainer import SelfSupervisedTrainer
-    
+  
     print(f"📚 Loading hierarchical real_next data from {hier_realnext_path}")
     real_next_dataset = DatasetRealNext(os.path.dirname(hier_realnext_path), device=device)
     train_loader = DataLoader(real_next_dataset.train_set, shuffle=True, batch_size=args.batch_size)
