@@ -2,7 +2,7 @@ import os
 import json
 import numpy as np
 
-def export_jsonl(hier_npz_path, diag_vocab_json=None, proc_vocab_json=None, out_path=None, top_k_visit=None):
+def export_json(hier_npz_path, diag_vocab_json=None, proc_vocab_json=None, out_path=None, top_k_visit=None):
     """
     Chuyển dữ liệu từ unified synthetic_mimic3_hier.npz (x, lens)
     thành cấu trúc JSONL:
