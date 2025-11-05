@@ -187,52 +187,40 @@ if __name__ == '__main__':
     if args.dual or getattr(args, "hierarchical", False):
         print("\n🧩 Building hierarchical dataset (diagnoses + procedures)...")
     
-        # 1. Parse thêm thủ thuật nếu chưa có
+        # 1️⃣ Parse thêm thủ thuật nếu chưa có
         if not hasattr(parser, "admission_procedures") or parser.admission_procedures is None:
             print("\tParsing PROCEDURES_ICD.csv ...")
             parser.parse_procedures()
             parser.calibrate_patient_by_admission()
             parser.calibrate_admission_by_patient()
     
-        # 2. Encode diag và proc riêng
-        admission_codes_encoded_dual, code_map_dual, Vd, Vp = encode_dual_concept(
-            patient_admission, parser.admission_codes, parser.admission_procedures
-        )
-    
-        # 3️⃣ Build real_data dual
-        (train_diag, train_proc, train_lens), (test_diag, test_proc, test_lens), code_map_dual, Vd, Vp = build_real_data_dual(
+        # 2️⃣ Encode và build dữ liệu dual (đã hợp nhất DIAG+PROC)
+        (train_dual, train_lens), (test_dual, test_lens), code_map_dual, Vd, Vp = build_real_data_dual(
             patient_admission, parser.admission_codes, parser.admission_procedures
         )
     
         V_total = Vd + Vp
         print(f"\t[dual] Vd={Vd}, Vp={Vp}, total V={V_total}")
-        print(f"\t[diag] train={train_diag.shape}, test={test_diag.shape}")
-        print(f"\t[proc] train={train_proc.shape}, test={test_proc.shape}")
-
-        # 4️⃣ Gộp diag + proc thành input duy nhất
-        print("🔗 Combining diagnosis + procedure into unified dual input...")
-        train_dual = np.concatenate([train_diag, train_proc], axis=-1)
-        test_dual  = np.concatenate([test_diag, test_proc], axis=-1)
-        print(f"✅ Dual input shape (train): {train_dual.shape}, (test): {test_dual.shape}")
-
-        # Lưu dữ liệu dual để HALO sử dụng
+        print(f"\t[dual] train={train_dual.shape}, test={test_dual.shape}")
+    
+        # 3️⃣ Lưu dữ liệu dual để HALO sử dụng
         hier_path = os.path.join(dataset_path, "standard_hier", "real_data")
         os.makedirs(hier_path, exist_ok=True)
+    
         np.savez_compressed(os.path.join(hier_path, "train.npz"), x=train_dual, lens=train_lens)
         np.savez_compressed(os.path.join(hier_path, "test.npz"), x=test_dual, lens=test_lens)
-         
-
+        print(f"💾 Saved dual train/test dataset to {hier_path}")
+    
         # ============================================================
-        # Tạo dual real_next cho BaseHALO pretraining
+        # 🧠 Build real_next (pretraining: predict next visit)
         # ============================================================
         if args.dual:
             print("\n🧠 Building hierarchical real_next data (for BaseHALO pretraining)...")
-        
-            os.makedirs(os.path.join(dataset_path, "standard_hier", "real_next"), exist_ok=True)
-            # Build X, Y (shift one step) cho bài toán dự đoán visit kế tiếp
-            X_next = []
-            Y_next = []
-            lens_next = []
+    
+            real_next_path = os.path.join(dataset_path, "standard_hier", "real_next")
+            os.makedirs(real_next_path, exist_ok=True)
+    
+            X_next, Y_next, lens_next = [], [], []
             for x_i, len_i in zip(train_dual, train_lens):
                 if len_i < 2:
                     continue
@@ -244,25 +232,25 @@ if __name__ == '__main__':
             V = train_dual.shape[-1]
             X_pad = np.zeros((len(X_next), max_len_next, V), dtype=np.float32)
             Y_pad = np.zeros_like(X_pad)
-        
+    
             for i, (x_i, y_i, l_i) in enumerate(zip(X_next, Y_next, lens_next)):
                 X_pad[i, :l_i] = x_i[:l_i]
                 Y_pad[i, :l_i] = y_i[:l_i]
-        
+    
             np.savez_compressed(
-                os.path.join(dataset_path, "standard_hier", "real_next", "train.npz"),
+                os.path.join(real_next_path, "train.npz"),
                 x=X_pad, y=Y_pad, lens=np.array(lens_next)
             )
             print(f"✅ Saved dual real_next for BaseHALO: {X_pad.shape}, vocab={V}")
-
     
-
-    
-        # 7️⃣ Lưu metadata
+        # ============================================================
+        # 🧾 Metadata
+        # ============================================================
         hier_meta = {"Vd": Vd, "Vp": Vp, "V": V_total, "code_map": code_map_dual}
         with open(os.path.join(dataset_path, "standard_hier", "hier_meta.json"), "w") as f:
             json.dump(hier_meta, f)
         print("✅ Saved hier_meta.json")
+
     # ============================================================
 
     np.savez_compressed(os.path.join(standard_path, 'code_adj.npz'), code_adj=code_adj)
