@@ -127,16 +127,14 @@ def generate(args):
     print(f'✅ Saved synthetic data: {synthetic_path}')
 
     # ======================================================
-    # 🩺 Nếu hierarchical: tách diag/proc để tiện xử lý
+    # 🩺 Nếu hierarchical
     # ======================================================
     if hier_mode:
-        print("🩺 Splitting hierarchical fake data (diag/proc)...")
-        diag = fake_x[:, :, :Vd]
-        proc = fake_x[:, :, Vd:]
+        print("🧬 HALO hierarchical mode detected — keeping unified (diag+proc) format.")
         hier_path = os.path.join(args.result_path, f"synthetic_{args.dataset}_hier.npz")
-        np.savez_compressed(hier_path, diag=diag, proc=proc, lens=fake_lens)
-        print(f"✅ Saved hierarchical synthetic data: {hier_path}")
-        print(f"   → diag shape: {diag.shape}, proc shape: {proc.shape}")
+        np.savez_compressed(hier_path, x=fake_x, lens=fake_lens)
+        print(f"✅ Saved unified hierarchical synthetic data: {hier_path}")
+        print(f"   → shape: {fake_x.shape}")
 
     # ======================================================
     # Optional: estimate required samples for upper bound
