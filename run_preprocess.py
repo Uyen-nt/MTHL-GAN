@@ -212,27 +212,31 @@ if __name__ == '__main__':
         print(f"💾 Saved dual train/test dataset to {hier_path}")
 
         # ===============================
-        # ⚖️ Balance visits có cả diag+proc
+        # ⚖️ Balance visits có cả diag+proc: tăng tần suất các visit thật có cả diag và proc trong tập train để model học được dữ liệu chúng đi chung với nhau
         # ===============================
-        print("\n⚙️ Balancing dual data to encourage diag–proc co-occurrence ...")
-        Vd, Vp = Vd, Vp  # từ meta encode_dual_concept
+        print("\n⚙️ Balancing visit-level diag–proc co-occurrence ...")
+        Vd, Vp = Vd, Vp
         has_diag = (train_dual[:, :, :Vd].sum(axis=-1) > 0)
         has_proc = (train_dual[:, :, Vd:].sum(axis=-1) > 0)
         joint_mask = (has_diag & has_proc)
 
-        # Xác định patient có ít nhất 1 visit joint
-        joint_patients = np.where(joint_mask.sum(axis=1) > 0)[0]
-        joint_ratio = len(joint_patients) / len(train_dual)
-        print(f"📊 Patients có ít nhất 1 visit diag+proc: {len(joint_patients)} ({joint_ratio*100:.1f}%)")
+        # Flatten toàn bộ visits thành 2D matrix
+        n_patients, max_visits, vocab = train_dual.shape
+        visit_data = train_dual.reshape(-1, vocab)
+        visit_mask = joint_mask.reshape(-1)
+        joint_visits = visit_data[visit_mask]
 
-        # ✅ Nhân đôi các patient có joint visit để mô hình học mạnh hơn mối liên kết
-        aug_x = np.concatenate([train_dual, train_dual[joint_patients]], axis=0)
-        aug_lens = np.concatenate([train_lens, train_lens[joint_patients]], axis=0)
-        print(f"✅ Sau augment: {aug_x.shape[0]} patients (tăng {aug_x.shape[0]/len(train_dual):.1f}×)")
+        print(f"📊 Có {joint_visits.shape[0]} visits có cả diag+proc.")
 
-        # Ghi đè dữ liệu huấn luyện balanced
-        np.savez_compressed(os.path.join(hier_path, "train_balanced.npz"), x=aug_x, lens=aug_lens)
-        print(f"💾 Saved balanced dual train set: {os.path.join(hier_path, 'train_balanced.npz')}")
+        # Nhân đôi các visits joint trong training (đơn giản gộp thêm vào cuối batch)
+        aug_x = np.concatenate([visit_data, joint_visits], axis=0)
+        print(f"✅ Sau augment: {aug_x.shape[0]} visits (tăng {aug_x.shape[0]/len(visit_data):.1f}×)")
+
+        # Chuyển lại về dạng patient-level (approx bằng cách pad lại)
+        n_new = aug_x.shape[0] // max_visits
+        train_dual_balanced = aug_x[:n_patients * max_visits].reshape(n_patients, max_visits, vocab)
+        np.savez_compressed(os.path.join(hier_path, "train_balanced.npz"), x=train_dual_balanced, lens=train_lens)
+        print(f"💾 Saved visit-balanced train set: {os.path.join(hier_path, 'train_balanced.npz')}")
 
         # ============================================================
         # 🧠 Build real_next (pretraining: predict next visit)
