@@ -210,7 +210,30 @@ if __name__ == '__main__':
         np.savez_compressed(os.path.join(hier_path, "train.npz"), x=train_dual, lens=train_lens)
         np.savez_compressed(os.path.join(hier_path, "test.npz"), x=test_dual, lens=test_lens)
         print(f"💾 Saved dual train/test dataset to {hier_path}")
-    
+
+        # ===============================
+        # ⚖️ Balance visits có cả diag+proc
+        # ===============================
+        print("\n⚙️ Balancing dual data to encourage diag–proc co-occurrence ...")
+        Vd, Vp = Vd, Vp  # từ meta encode_dual_concept
+        has_diag = (train_dual[:, :, :Vd].sum(axis=-1) > 0)
+        has_proc = (train_dual[:, :, Vd:].sum(axis=-1) > 0)
+        joint_mask = (has_diag & has_proc)
+
+        # Xác định patient có ít nhất 1 visit joint
+        joint_patients = np.where(joint_mask.sum(axis=1) > 0)[0]
+        joint_ratio = len(joint_patients) / len(train_dual)
+        print(f"📊 Patients có ít nhất 1 visit diag+proc: {len(joint_patients)} ({joint_ratio*100:.1f}%)")
+
+        # ✅ Nhân đôi các patient có joint visit để mô hình học mạnh hơn mối liên kết
+        aug_x = np.concatenate([train_dual, train_dual[joint_patients]], axis=0)
+        aug_lens = np.concatenate([train_lens, train_lens[joint_patients]], axis=0)
+        print(f"✅ Sau augment: {aug_x.shape[0]} patients (tăng {aug_x.shape[0]/len(train_dual):.1f}×)")
+
+        # Ghi đè dữ liệu huấn luyện balanced
+        np.savez_compressed(os.path.join(hier_path, "train_balanced.npz"), x=aug_x, lens=aug_lens)
+        print(f"💾 Saved balanced dual train set: {os.path.join(hier_path, 'train_balanced.npz')}")
+
         # ============================================================
         # 🧠 Build real_next (pretraining: predict next visit)
         # ============================================================
@@ -219,6 +242,18 @@ if __name__ == '__main__':
     
             real_next_path = os.path.join(dataset_path, "standard_hier", "real_next")
             os.makedirs(real_next_path, exist_ok=True)
+
+            # 🆕 Ưu tiên dùng dữ liệu balanced
+            balanced_path = os.path.join(hier_path, "train_balanced.npz")
+            if os.path.exists(balanced_path):
+                print(f"📦 Using balanced train set: {balanced_path}")
+                train_data = np.load(balanced_path)
+            else:
+                print("⚠️ Balanced set not found, fallback to original train.npz")
+                train_data = np.load(os.path.join(hier_path, "train.npz"))
+
+            train_dual, train_lens = train_data["x"], train_data["lens"]
+            train_data.close()
     
             X_next, Y_next, lens_next = [], [], []
             for x_i, len_i in zip(train_dual, train_lens):
