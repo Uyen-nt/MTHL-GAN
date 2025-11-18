@@ -14,6 +14,8 @@ from generation.stat_ehr import get_basic_statistics, get_top_k_disease, calc_di
 from model.halo_model import HALOModel
 from types import SimpleNamespace
 
+from evaluation_metrics import evaluate_dual_outputs, analyze_visit_distribution, calculate_co_occurrence_metrics
+
 
 def generate(args):
     random.seed(args.seed)
@@ -140,6 +142,41 @@ def generate(args):
     # Optional: estimate required samples for upper bound
     # ======================================================
     get_required_number(generator, len_dist, args.batch_size, args.upper_bound)
+
+    # ======================================================
+    # 🧪 EVALUATION MỚI - ĐÁNH GIÁ DUAL OUTPUT
+    # ======================================================
+    
+    print("\n" + "="*60)
+    print("🧪 EVALUATION DUAL OUTPUTS (DIAGNOSES + PROCEDURES)")
+    print("="*60)
+    
+    # Load real data để so sánh
+    if hier_mode:
+        data_dir = os.path.join(dataset_path, "standard_hier", "real_data")
+    else:
+        data_dir = os.path.join(dataset_path, "standard", "real_data")
+    
+    dataset_real = DatasetReal(data_dir)
+    real_x, real_lens = dataset_real.train_set.data
+    
+    # 1. Basic evaluation
+    dual_results = evaluate_dual_outputs(real_x, real_lens, fake_x, fake_lens, Vd, Vp)
+    print("📈 BASIC DUAL METRICS:")
+    print(f"  Diagnoses - Real: {dual_results['diag_stats']['real_avg_codes_per_visit']:.2f}, Fake: {dual_results['diag_stats']['fake_avg_codes_per_visit']:.2f}")
+    print(f"  Procedures - Real: {dual_results['proc_stats']['real_avg_codes_per_visit']:.2f}, Fake: {dual_results['proc_stats']['fake_avg_codes_per_visit']:.2f}")
+    print(f"  Visits with both diag+proc - Real: {dual_results['joint_visits']['real_ratio']:.3f}, Fake: {dual_results['joint_visits']['fake_ratio']:.3f}")
+    
+    # 2. Detailed analysis
+    print("\n🔍 DETAILED VISIT ANALYSIS (100 first patients):")
+    analyze_visit_distribution(fake_x, fake_lens, Vd, Vp, sample_size=100)
+    
+    # 3. Co-occurrence analysis
+    print("\n🔗 CO-OCCURRENCE ANALYSIS:")
+    cooccur_metrics = calculate_co_occurrence_metrics(real_x, fake_x, Vd, Vp)
+    print(f"  Real co-occurring visits: {cooccur_metrics['real_cooccurring_visits']}")
+    print(f"  Fake co-occurring visits: {cooccur_metrics['fake_cooccurring_visits']}")
+    print(f"  Co-occurrence JS Distance: {cooccur_metrics['cooccurrence_js_distance']:.4f}")
 
 
 if __name__ == '__main__':
