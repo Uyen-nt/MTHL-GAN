@@ -168,15 +168,15 @@ def generate(args):
     print(f"  Visits with both diag+proc - Real: {dual_results['joint_visits']['real_ratio']:.3f}, Fake: {dual_results['joint_visits']['fake_ratio']:.3f}")
     
     # 2. Detailed analysis
-    print("\n🔍 DETAILED VISIT ANALYSIS (100 first patients):")
-    analyze_visit_distribution(fake_x, fake_lens, Vd, Vp, sample_size=100)
+    print("\n🔍 DETAILED VISIT ANALYSIS (10 first patients):")
+    analyze_visit_distribution(fake_x, fake_lens, Vd, Vp, sample_size=10)
     
     # 3. Co-occurrence analysis
-    print("\n🔗 CO-OCCURRENCE ANALYSIS:")
-    cooccur_metrics = calculate_co_occurrence_metrics(real_x, fake_x, Vd, Vp)
-    print(f"  Real co-occurring visits: {cooccur_metrics['real_cooccurring_visits']}")
-    print(f"  Fake co-occurring visits: {cooccur_metrics['fake_cooccurring_visits']}")
-    print(f"  Co-occurrence JS Distance: {cooccur_metrics['cooccurrence_js_distance']:.4f}")
+    # print("\n🔗 CO-OCCURRENCE ANALYSIS:")
+    # cooccur_metrics = calculate_co_occurrence_metrics(real_x, fake_x, Vd, Vp)
+    # print(f"  Real co-occurring visits: {cooccur_metrics['real_cooccurring_visits']}")
+    # print(f"  Fake co-occurring visits: {cooccur_metrics['fake_cooccurring_visits']}")
+    # print(f"  Co-occurrence JS Distance: {cooccur_metrics['cooccurrence_js_distance']:.4f}")
 
 
 if __name__ == '__main__':
