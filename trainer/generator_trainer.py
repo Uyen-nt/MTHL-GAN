@@ -16,8 +16,9 @@ class GeneratorTrainer:
     def _step(self, target_codes, lens):
         noise = self.generator.get_noise(len(lens))
         samples, hiddens = self.generator(target_codes, lens, noise)
+        sparsity_loss = torch.mean(samples) * 0.01
         output = self.critic(samples, hiddens, lens)
-        loss = -output.mean()
+        loss = -output.mean() + sparsity_loss
 
         self.optimizer.zero_grad()
         loss.backward()
