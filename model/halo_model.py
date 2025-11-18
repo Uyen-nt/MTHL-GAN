@@ -213,11 +213,6 @@ class HALOModel(nn.Module):
         
         return code_probs
 
-    def pretrain_forward(self, input_visits):
-        """Forward đơn giản cho pretraining - chỉ trả về logits"""
-        hidden_states = self.transformer(input_visits)
-        code_logits = self.ehr_head(hidden_states, input_visits)
-        return code_logits  # [B, T-1, V]
 
     def sample(self, input_visits, random=True):
         sig = nn.Sigmoid()
