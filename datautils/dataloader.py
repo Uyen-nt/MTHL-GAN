@@ -50,29 +50,30 @@ class DataLoader:
 
 def get_train_test_loader(dataset_path, batch_size, device):
     """
-    Load train/test dataloader cho cả 2 chế độ:
-      - Normal (standard/real_data)
-      - Hierarchical dual (standard_hier/real_data)
+    Load train/test dataloader cho cả 2 chế độ
     """
 
     # --- Xác định đường dẫn thật ---
     if "standard_hier" in dataset_path:
-        data_dir = dataset_path  # đã là folder chứa train/test.npz
-        
-        # 🎯 KIỂM TRA BALANCED DATA
-        balanced_train_path = os.path.join(data_dir, "train_balanced.npz")
-        if os.path.exists(balanced_train_path):
-            print(f"📦 [Dual Hierarchical - BALANCED] Using balanced dataset at: {data_dir}")
-            # Tạo dataset custom từ balanced data
-            dataset = _create_balanced_dataset(data_dir, device)
-        else:
-            print(f"📦 [Dual Hierarchical] Using dataset at: {data_dir}")
-            dataset = DatasetReal(data_dir, device=device)
-            
+        data_dir = dataset_path
+        print(f"📦 [Dual Hierarchical] Using dataset at: {data_dir}")
     else:
         data_dir = os.path.join(dataset_path, "standard", "real_data")
         print(f"📦 [Single Diagnosis] Using dataset at: {data_dir}")
+
+    # 🎯 KIỂM TRA VÀ ƯU TIÊN BALANCED DATA
+    balanced_train_path = os.path.join(data_dir, "train_balanced.npz")
+    standard_train_path = os.path.join(data_dir, "train.npz")
+    
+    if os.path.exists(balanced_train_path):
+        print(f"   🎯 Using BALANCED training data!")
+        # Tạo dataset từ balanced data
+        dataset = _create_balanced_dataset(data_dir, device)
+    elif os.path.exists(standard_train_path):
+        print(f"   📂 Using STANDARD training data")
         dataset = DatasetReal(data_dir, device=device)
+    else:
+        raise FileNotFoundError(f"No training data found in {data_dir}")
 
     # --- Tạo DataLoader ---
     train_loader = DataLoader(dataset.train_set, batch_size=batch_size, shuffle=True)
@@ -87,27 +88,43 @@ def get_train_test_loader(dataset_path, batch_size, device):
 
 
 def _create_balanced_dataset(data_dir, device):
-    """Tạo dataset từ balanced data"""
-    class BalancedDatasetReal:
+    """Tạo dataset từ balanced data (nếu có) hoặc standard data"""
+    class FlexibleDatasetReal:
         def __init__(self, data_dir, device):
             self.device = device
             
-            # Load balanced train data
-            balanced_data = np.load(os.path.join(data_dir, "train_balanced.npz"))
-            self.train_set = self._create_data_tuple(balanced_data)
+            # 🎯 ƯU TIÊN: balanced data trước
+            balanced_train_path = os.path.join(data_dir, "train_balanced.npz")
+            standard_train_path = os.path.join(data_dir, "train.npz")
+            test_path = os.path.join(data_dir, "test.npz")
             
-            # Load test data từ file gốc
-            test_data = np.load(os.path.join(data_dir, "test.npz"))
-            self.test_set = self._create_data_tuple(test_data)
+            # Load train data (ưu tiên balanced)
+            if os.path.exists(balanced_train_path):
+                print("   🎯 Loading BALANCED train data")
+                train_data = np.load(balanced_train_path)
+            elif os.path.exists(standard_train_path):
+                print("   📂 Loading STANDARD train data")  
+                train_data = np.load(standard_train_path)
+            else:
+                raise FileNotFoundError(f"No train data found in {data_dir}")
+                
+            self.train_set = self._create_data_tuple(train_data)
             
-            balanced_data.close()
-            test_data.close()
+            # Load test data (luôn dùng standard)
+            if os.path.exists(test_path):
+                test_data = np.load(test_path)
+                self.test_set = self._create_data_tuple(test_data)
+                test_data.close()
+            else:
+                raise FileNotFoundError(f"No test data found in {data_dir}")
+            
+            train_data.close()
         
         def _create_data_tuple(self, data):
             return (torch.from_numpy(data['x']).to(self.device), 
                     torch.from_numpy(data['lens']).to(self.device))
     
-    return BalancedDatasetReal(data_dir, device)
+    return FlexibleDatasetReal(data_dir, device)
 
 
 def get_base_gru_train_loader(dataset_path, batch_size, device):
