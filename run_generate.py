@@ -14,7 +14,7 @@ from generation.stat_ehr import get_basic_statistics, get_top_k_disease, calc_di
 from model.halo_model import HALOModel
 from types import SimpleNamespace
 
-from evaluation_metrics import evaluate_dual_outputs, analyze_visit_distribution, calculate_co_occurrence_metrics
+from evaluation_metrics import evaluate_dual_outputs, analyze_visit_distribution, calculate_co_occurrence_metrics, calculate_pairwise_cooccurrence_precision_recall, calculate_code_coverage_metrics
 
 
 def generate(args):
