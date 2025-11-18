@@ -79,22 +79,14 @@ def train(args):
     # 📂 4. Load dataset đúng mode
     # ======================================================
     if hier_mode:
-        hier_data_dir = os.path.join(dataset_path, "standard_hier", "real_data")  
-        
-        # 🎯 KIỂM TRA BALANCED DATA (chỉ để thông báo)
-        balanced_path = os.path.join(hier_data_dir, "train_balanced.npz")
-        if os.path.exists(balanced_path):
-            print(f"📦 BALANCED hierarchical dataset available!")
-        else:
-            print(f"📂 Standard hierarchical dataset")
-        
-        print(f"📂 Loading hierarchical dual dataset from: {hier_data_dir}")
-        train_loader, test_loader, max_len = get_train_test_loader(hier_data_dir, args.batch_size, device)  
+        hier_data_path = os.path.join(dataset_path, "standard_hier", "real_data")
+        print(f"📂 Loading hierarchical dual dataset from: {hier_data_path}")
+        train_loader, test_loader, max_len = get_train_test_loader(hier_data_path, args.batch_size, device)
     else:
         print("📂 Loading standard single-diagnosis dataset ...")
         data_path_std = os.path.join(dataset_path, "standard", "real_data")
         train_loader, test_loader, max_len = get_train_test_loader(data_path_std, args.batch_size, device)
-    
+
     len_dist = torch.from_numpy(len_dist).to(device)
 
     # ======================================================
@@ -113,22 +105,16 @@ def train(args):
     halo_model = HALOModel(config).to(device)
     base_halo = BaseHALO(halo_model, max_len=max_len, hidden_dim=args.g_hidden_dim).to(device)
     
-    hier_realnext_dir = os.path.join(dataset_path, "standard_hier", "real_next")  
-
-    # 🎯 KIỂM TRA BALANCED REAL_NEXT (chỉ để thông báo)
-    balanced_realnext_path = os.path.join(hier_realnext_dir, "train_balanced.npz")
-    if os.path.exists(balanced_realnext_path):
-        print(f"📦 BALANCED real_next data available!")
-    else:
-        print(f"📂 Standard real_next data")
-    
-    print(f"📚 Loading hierarchical real_next data from {hier_realnext_dir}")
+    # 🧩 Dữ liệu pretrain (real_next từ dual dataset)
+    hier_realnext_path = os.path.join(dataset_path, "standard_hier", "real_next", "train.npz")
+    if not os.path.exists(hier_realnext_path):
+        raise FileNotFoundError(f"❌ Missing hierarchical real_next: {hier_realnext_path}")
     
     from datautils.dataset import DatasetRealNext
     from datautils.dataloader import DataLoader
-    
-    print(f"📚 Loading hierarchical real_next data from {hier_realnext_dir}")
-    real_next_dataset = DatasetRealNext(hier_realnext_dir, device=device)  
+  
+    print(f"📚 Loading hierarchical real_next data from {hier_realnext_path}")
+    real_next_dataset = DatasetRealNext(os.path.dirname(hier_realnext_path), device=device)
     train_loader = DataLoader(real_next_dataset.train_set, shuffle=True, batch_size=args.batch_size)
     
     # 🧠 Warm-up HALO trước khi đưa vào Critic
@@ -188,3 +174,4 @@ def train(args):
 if __name__ == '__main__':
     args = get_training_args()
     train(args)
+
