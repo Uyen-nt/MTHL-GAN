@@ -1,6 +1,6 @@
 import os
 import pickle
-import torch
+
 import numpy as np
 import pandas as pd
 
@@ -48,32 +48,24 @@ class DataLoader:
     def __len__(self):
         return self.n_batches
 
+
 def get_train_test_loader(dataset_path, batch_size, device):
     """
-    Load train/test dataloader cho cả 2 chế độ
+    Load train/test dataloader cho cả 2 chế độ:
+      - Normal (standard/real_data)
+      - Hierarchical dual (standard_hier/real_data)
     """
 
     # --- Xác định đường dẫn thật ---
     if "standard_hier" in dataset_path:
-        data_dir = dataset_path
+        data_dir = dataset_path  # đã là folder chứa train/test.npz
         print(f"📦 [Dual Hierarchical] Using dataset at: {data_dir}")
     else:
         data_dir = os.path.join(dataset_path, "standard", "real_data")
         print(f"📦 [Single Diagnosis] Using dataset at: {data_dir}")
 
-    # 🎯 KIỂM TRA VÀ ƯU TIÊN BALANCED DATA
-    balanced_train_path = os.path.join(data_dir, "train_balanced.npz")
-    standard_train_path = os.path.join(data_dir, "train.npz")
-    
-    if os.path.exists(balanced_train_path):
-        print(f"   🎯 Using BALANCED training data!")
-        # Tạo dataset từ balanced data
-        dataset = _create_balanced_dataset(data_dir, device)
-    elif os.path.exists(standard_train_path):
-        print(f"   📂 Using STANDARD training data")
-        dataset = DatasetReal(data_dir, device=device)
-    else:
-        raise FileNotFoundError(f"No training data found in {data_dir}")
+    # --- Load dataset ---
+    dataset = DatasetReal(data_dir, device=device)
 
     # --- Tạo DataLoader ---
     train_loader = DataLoader(dataset.train_set, batch_size=batch_size, shuffle=True)
@@ -87,80 +79,10 @@ def get_train_test_loader(dataset_path, batch_size, device):
     return train_loader, test_loader, max_len
 
 
-def _create_balanced_dataset(data_dir, device):
-    """Tạo dataset từ balanced data (nếu có) hoặc standard data"""
-    class FlexibleDatasetReal:
-        def __init__(self, data_dir, device):
-            self.device = device
-            
-            # 🎯 ƯU TIÊN: balanced data trước
-            balanced_train_path = os.path.join(data_dir, "train_balanced.npz")
-            standard_train_path = os.path.join(data_dir, "train.npz")
-            test_path = os.path.join(data_dir, "test.npz")
-            
-            # Load train data (ưu tiên balanced)
-            if os.path.exists(balanced_train_path):
-                print("   🎯 Loading BALANCED train data")
-                train_data = np.load(balanced_train_path)
-            elif os.path.exists(standard_train_path):
-                print("   📂 Loading STANDARD train data")  
-                train_data = np.load(standard_train_path)
-            else:
-                raise FileNotFoundError(f"No train data found in {data_dir}")
-                
-            self.train_set = self._create_data_tuple(train_data)
-            
-            # Load test data (luôn dùng standard)
-            if os.path.exists(test_path):
-                test_data = np.load(test_path)
-                self.test_set = self._create_data_tuple(test_data)
-                test_data.close()
-            else:
-                raise FileNotFoundError(f"No test data found in {data_dir}")
-            
-            train_data.close()
-        
-        def _create_data_tuple(self, data):
-            return (torch.from_numpy(data['x']).to(self.device), 
-                    torch.from_numpy(data['lens']).to(self.device))
-    
-    return FlexibleDatasetReal(data_dir, device)
-
-
 def get_base_gru_train_loader(dataset_path, batch_size, device):
-    data_dir = os.path.join(dataset_path, 'standard', 'real_next')
-    
-    # 🎯 KIỂM TRA BALANCED REAL_NEXT
-    balanced_path = os.path.join(data_dir, "train_balanced.npz")
-    if os.path.exists(balanced_path):
-        print(f"📦 [BaseHALO - BALANCED] Using balanced real_next data")
-        # Tạo dataset custom từ balanced
-        dataset = _create_balanced_realnext_dataset(data_dir, device)
-    else:
-        dataset = DatasetRealNext(data_dir, device=device)
-    
+    dataset = DatasetRealNext(os.path.join(dataset_path, 'standard', 'real_next'), device=device)
     train_loader = DataLoader(dataset.train_set, shuffle=True, batch_size=batch_size)
     return train_loader
-
-
-def _create_balanced_realnext_dataset(data_dir, device):
-    """Tạo real_next dataset từ balanced data"""
-    class BalancedDatasetRealNext:
-        def __init__(self, data_dir, device):
-            self.device = device
-            
-            # Load balanced train data
-            balanced_data = np.load(os.path.join(data_dir, "train_balanced.npz"))
-            self.train_set = self._create_data_tuple(balanced_data)
-            
-            balanced_data.close()
-        
-        def _create_data_tuple(self, data):
-            return (torch.from_numpy(data['x']).to(self.device), 
-                    torch.from_numpy(data['lens']).to(self.device),
-                    torch.from_numpy(data['y']).to(self.device))
-    
-    return BalancedDatasetRealNext(data_dir, device)
 
 
 def load_meta_data(dataset_path):
