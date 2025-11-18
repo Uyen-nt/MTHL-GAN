@@ -106,3 +106,121 @@ def calculate_co_occurrence_metrics(real_x, fake_x, Vd, Vp):
         'real_cooccurrence_density': real_count / (len(real_x) * real_x.shape[1]),
         'fake_cooccurrence_density': fake_count / (len(fake_x) * fake_x.shape[1])
     }
+
+# ======================================================
+# THÊM MỚI: CÁC METRIC NÂNG CAO CHO DUAL OUTPUT
+# ======================================================
+
+def calculate_code_coverage_metrics(real_x, fake_x, Vd, Vp, rare_threshold=10):
+    """
+    Đánh giá:
+    - Tổng số mã độc nhất được sinh ra (diagnoses + procedures riêng biệt)
+    - Số mã hiếm (xuất hiện <= rare_threshold lần trong real) được sinh ra
+    """
+    def get_present_codes(data, Vd, Vp):
+        diag_codes = set()
+        proc_codes = set()
+        
+        for patient in data:
+            for visit in patient:
+                diag_active = np.where(visit[:Vd] > 0)[0]
+                proc_active = np.where(visit[Vd:Vd+Vp] > 0)[0]
+                
+                diag_codes.update(diag_active)
+                proc_codes.update(proc_active - Vd)  # chuyển về index gốc của proc
+        
+        return diag_codes, proc_codes
+    
+    # Real codes
+    real_diag_codes, real_proc_codes = get_present_codes(real_x, Vd, Vp)
+    
+    # Fake codes
+    fake_diag_codes, fake_proc_codes = get_present_codes(fake_x, Vd, Vp)
+    
+    # Tính tần suất trong real để xác định mã hiếm
+    real_diag_freq = np.zeros(Vd)
+    real_proc_freq = np.zeros(Vp)
+    
+    for patient in real_x:
+        for visit in patient:
+            real_diag_freq += (visit[:Vd] > 0)
+            real_proc_freq += (visit[Vd:Vd+Vp] > 0)
+    
+    rare_diag_real = set(np.where(real_diag_freq <= rare_threshold)[0])
+    rare_proc_real = set(np.where(real_proc_freq <= rare_threshold)[0])
+    
+    # Coverage
+    diag_coverage = len(fake_diag_codes) / len(real_diag_codes) if real_diag_codes else 0
+    proc_coverage = len(fake_proc_codes) / len(real_proc_codes) if real_proc_codes else 0
+    
+    # Rare code recall
+    rare_diag_recall = len(fake_diag_codes & rare_diag_real) / len(rare_diag_real) if rare_diag_real else 0
+    rare_proc_recall = len(fake_proc_codes & rare_proc_real) / len(rare_proc_real) if rare_proc_real else 0
+    
+    return {
+        'diagnosis': {
+            'real_unique': len(real_diag_codes),
+            'fake_unique': len(fake_diag_codes),
+            'coverage_ratio': diag_coverage,
+            'rare_real': len(rare_diag_real),
+            'rare_generated': len(fake_diag_codes & rare_diag_real),
+            'rare_recall': rare_diag_recall
+        },
+        'procedure': {
+            'real_unique': len(real_proc_codes),
+            'fake_unique': len(fake_proc_codes),
+            'coverage_ratio': proc_coverage,
+            'rare_real': len(rare_proc_real),
+            'rare_generated': len(fake_proc_codes & rare_proc_real),
+            'rare_recall': rare_proc_recall
+        },
+        'rare_threshold': rare_threshold
+    }
+
+
+def calculate_pairwise_cooccurrence_precision_recall(real_x, fake_x, Vd, Vp, top_k_pairs=1000):
+    """
+    Tính Precision/Recall của các cặp (diagnosis, procedure) đồng xuất hiện
+    Dựa trên các cặp phổ biến nhất trong dữ liệu thật
+    """
+    from collections import defaultdict
+    
+    def extract_cooccur_pairs(data, Vd, Vp):
+        pairs = defaultdict(int)
+        for patient in data:
+            for visit in patient:
+                diags = set(np.where(visit[:Vd] > 0)[0])
+                procs = set(np.where(visit[Vd:Vd+Vp] > 0)[0]) - set(range(Vd))  # offset
+                procs = {p - Vd for p in procs}
+                
+                for d in diags:
+                    for p in procs:
+                        pairs[(d, p)] += 1
+        return pairs
+    
+    real_pairs_count = extract_cooccur_pairs(real_x, Vd, Vp)
+    fake_pairs_count = extract_cooccur_pairs(fake_x, Vd, Vp)
+    
+    # Lấy top_k cặp phổ biến nhất trong real
+    top_real_pairs = sorted(real_pairs_count.items(), key=lambda x: x[1], reverse=True)[:top_k_pairs]
+    top_real_set = {(d, p) for ((d, p), count) in top_real_pairs}
+    
+    # Tính intersection với fake
+    fake_set = set(fake_pairs_count.keys())
+    intersection = top_real_set & fake_set
+    
+    precision = len(intersection) / len(top_real_set) if top_real_set else 0
+    recall = len(intersection) / len(top_real_set) if top_real_set else 0  # recall = precision ở đây vì cùng mẫu tử
+    
+    # Bonus: tỷ lệ cặp fake nằm trong top real (đo "realistic co-occurrence")
+    reverse_precision = len(intersection) / len(fake_set) if fake_set else 0
+    
+    return {
+        'top_k': top_k_pairs,
+        'real_top_pairs': len(top_real_pairs),
+        'generated_matching_pairs': len(intersection),
+        'cooccurrence_precision': precision,
+        'cooccurrence_recall': recall,
+        'fake_to_real_precision': reverse_precision,
+        'total_fake_pairs': len(fake_set)
+    }
