@@ -182,7 +182,7 @@ def generate(args):
     print("METRICS NÂNG CAO: CODE COVERAGE & RARE CODE RECOVERY")
     print("="*60)
     
-    coverage_metrics = calculate_code_coverage_metrics(real_x, real_lens, fake_x, fake_lens, Vd, Vp, rare_threshold=10)
+    coverage_metrics = calculate_code_coverage_metrics(real_x, fake_x, Vd, Vp, rare_threshold=10)
     print(f" Diagnoses  - Unique: {coverage_metrics['diagnosis']['real_unique']} → {coverage_metrics['diagnosis']['fake_unique']} "
           f"({coverage_metrics['diagnosis']['coverage_ratio']:.3f}), Rare recall: {coverage_metrics['diagnosis']['rare_recall']:.3f}")
     print(f" Procedures - Unique: {coverage_metrics['procedure']['real_unique']} → {coverage_metrics['procedure']['fake_unique']} "
