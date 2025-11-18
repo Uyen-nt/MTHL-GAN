@@ -214,29 +214,29 @@ if __name__ == '__main__':
         # ===============================
         # ⚖️ Balance visits có cả diag+proc: tăng tần suất các visit thật có cả diag và proc trong tập train để model học được dữ liệu chúng đi chung với nhau
         # ===============================
-        # print("\n⚙️ Balancing visit-level diag–proc co-occurrence ...")
-        # Vd, Vp = Vd, Vp
-        # has_diag = (train_dual[:, :, :Vd].sum(axis=-1) > 0)
-        # has_proc = (train_dual[:, :, Vd:].sum(axis=-1) > 0)
-        # joint_mask = (has_diag & has_proc)
+        print("\n⚙️ Balancing visit-level diag–proc co-occurrence ...")
+        Vd, Vp = Vd, Vp
+        has_diag = (train_dual[:, :, :Vd].sum(axis=-1) > 0)
+        has_proc = (train_dual[:, :, Vd:].sum(axis=-1) > 0)
+        joint_mask = (has_diag & has_proc)
 
-        # # Flatten toàn bộ visits thành 2D matrix
-        # n_patients, max_visits, vocab = train_dual.shape
-        # visit_data = train_dual.reshape(-1, vocab)
-        # visit_mask = joint_mask.reshape(-1)
-        # joint_visits = visit_data[visit_mask]
+        # Flatten toàn bộ visits thành 2D matrix
+        n_patients, max_visits, vocab = train_dual.shape
+        visit_data = train_dual.reshape(-1, vocab)
+        visit_mask = joint_mask.reshape(-1)
+        joint_visits = visit_data[visit_mask]
 
-        # print(f"📊 Có {joint_visits.shape[0]} visits có cả diag+proc.")
+        print(f"📊 Có {joint_visits.shape[0]} visits có cả diag+proc.")
 
-        # # Nhân đôi các visits joint trong training (đơn giản gộp thêm vào cuối batch)
-        # aug_x = np.concatenate([visit_data, joint_visits], axis=0)
-        # print(f"✅ Sau augment: {aug_x.shape[0]} visits (tăng {aug_x.shape[0]/len(visit_data):.1f}×)")
+        # Nhân đôi các visits joint trong training (đơn giản gộp thêm vào cuối batch)
+        aug_x = np.concatenate([visit_data, joint_visits], axis=0)
+        print(f"✅ Sau augment: {aug_x.shape[0]} visits (tăng {aug_x.shape[0]/len(visit_data):.1f}×)")
 
-        # # Chuyển lại về dạng patient-level (approx bằng cách pad lại)
-        # n_new = aug_x.shape[0] // max_visits
-        # train_dual_balanced = aug_x[:n_patients * max_visits].reshape(n_patients, max_visits, vocab)
-        # np.savez_compressed(os.path.join(hier_path, "train_balanced.npz"), x=train_dual_balanced, lens=train_lens)
-        # print(f"💾 Saved visit-balanced train set: {os.path.join(hier_path, 'train_balanced.npz')}")
+        # Chuyển lại về dạng patient-level (approx bằng cách pad lại)
+        n_new = aug_x.shape[0] // max_visits
+        train_dual_balanced = aug_x[:n_patients * max_visits].reshape(n_patients, max_visits, vocab)
+        np.savez_compressed(os.path.join(hier_path, "train_balanced.npz"), x=train_dual_balanced, lens=train_lens)
+        print(f"💾 Saved visit-balanced train set: {os.path.join(hier_path, 'train_balanced.npz')}")
 
         # ============================================================
         # 🧠 Build real_next (pretraining: predict next visit)
@@ -248,16 +248,16 @@ if __name__ == '__main__':
             os.makedirs(real_next_path, exist_ok=True)
 
             # # 🆕 Ưu tiên dùng dữ liệu balanced
-            # balanced_path = os.path.join(hier_path, "train_balanced.npz")
-            # if os.path.exists(balanced_path):
-            #     print(f"📦 Using balanced train set: {balanced_path}")
-            #     train_data = np.load(balanced_path)
-            # else:
-            #     print("⚠️ Balanced set not found, fallback to original train.npz")
-            #     train_data = np.load(os.path.join(hier_path, "train.npz"))
+            balanced_path = os.path.join(hier_path, "train_balanced.npz")
+            if os.path.exists(balanced_path):
+                print(f"📦 Using balanced train set: {balanced_path}")
+                train_data = np.load(balanced_path)
+            else:
+                print("⚠️ Balanced set not found, fallback to original train.npz")
+                train_data = np.load(os.path.join(hier_path, "train.npz"))
 
-            # train_dual, train_lens = train_data["x"], train_data["lens"]
-            # train_data.close()
+            train_dual, train_lens = train_data["x"], train_data["lens"]
+            train_data.close()
     
             X_next, Y_next, lens_next = [], [], []
             for x_i, len_i in zip(train_dual, train_lens):
