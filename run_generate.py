@@ -178,6 +178,25 @@ def generate(args):
     # print(f"  Fake co-occurring visits: {cooccur_metrics['fake_cooccurring_visits']}")
     # print(f"  Co-occurrence JS Distance: {cooccur_metrics['cooccurrence_js_distance']:.4f}")
 
+    print("\n" + "="*60)
+    print("METRICS NÂNG CAO: CODE COVERAGE & RARE CODE RECOVERY")
+    print("="*60)
+    
+    coverage_metrics = calculate_code_coverage_metrics(real_x, real_lens, fake_x, fake_lens, Vd, Vp, rare_threshold=10)
+    print(f" Diagnoses  - Unique: {coverage_metrics['diagnosis']['real_unique']} → {coverage_metrics['diagnosis']['fake_unique']} "
+          f"({coverage_metrics['diagnosis']['coverage_ratio']:.3f}), Rare recall: {coverage_metrics['diagnosis']['rare_recall']:.3f}")
+    print(f" Procedures - Unique: {coverage_metrics['procedure']['real_unique']} → {coverage_metrics['procedure']['fake_unique']} "
+          f"({coverage_metrics['procedure']['coverage_ratio']:.3f}), Rare recall: {coverage_metrics['procedure']['rare_recall']:.3f}")
+
+    print("\n" + "="*60)
+    print("METRICS NÂNG CAO: CO-OCCURRENCE PRECISION (Top 1000 cặp phổ biến)")
+    print("="*60)
+    
+    pair_metrics = calculate_pairwise_cooccurrence_precision_recall(real_x, fake_x, Vd, Vp, top_k_pairs=1000)
+    print(f" Top-1000 real pairs được sinh lại: {pair_metrics['generated_matching_pairs']}/{pair_metrics['top_k']} "
+          f"→ Precision = {pair_metrics['cooccurrence_precision']:.3f}")
+    print(f" Tỷ lệ cặp fake thuộc top real: {pair_metrics['fake_to_real_precision']:.3f}")
+
 
 if __name__ == '__main__':
     args = get_generate_args()
