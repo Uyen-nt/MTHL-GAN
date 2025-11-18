@@ -80,6 +80,13 @@ def train(args):
     # ======================================================
     if hier_mode:
         hier_data_path = os.path.join(dataset_path, "standard_hier", "real_data")
+        # 🎯 ƯU TIÊN BALANCED DATA NẾU CÓ
+        balanced_path = os.path.join(hier_data_path, "train_balanced.npz")
+        if os.path.exists(balanced_path):
+            print(f"📦 Using BALANCED hierarchical dataset!")
+            # đổi đường dẫn
+            hier_data_path = balanced_path 
+        
         print(f"📂 Loading hierarchical dual dataset from: {hier_data_path}")
         train_loader, test_loader, max_len = get_train_test_loader(hier_data_path, args.batch_size, device)
     else:
@@ -107,8 +114,15 @@ def train(args):
     
     # 🧩 Dữ liệu pretrain (real_next từ dual dataset)
     hier_realnext_path = os.path.join(dataset_path, "standard_hier", "real_next", "train.npz")
-    if not os.path.exists(hier_realnext_path):
-        raise FileNotFoundError(f"❌ Missing hierarchical real_next: {hier_realnext_path}")
+    # 🎯 KIỂM TRA BALANCED REAL_NEXT
+    balanced_realnext_path = os.path.join(dataset_path, "standard_hier", "real_next", "train_balanced.npz")
+    if os.path.exists(balanced_realnext_path):
+        print(f"📦 Using BALANCED real_next data!")
+        hier_realnext_path = balanced_realnext_path  # 🎯 DÙNG BALANCED
+    else:
+        print(f"📂 Using standard real_next data")
+    
+    print(f"📚 Loading hierarchical real_next data from {hier_realnext_path}")
     
     from datautils.dataset import DatasetRealNext
     from datautils.dataloader import DataLoader
