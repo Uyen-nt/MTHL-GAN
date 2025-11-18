@@ -32,10 +32,13 @@ class HALOGeneratorCore(nn.Module):
         T = self.max_len
         device = self.device
 
-        # tạo input trống
+        # tạo input
         x = torch.zeros(B, T, V, device=device)
-        # neo target code đầu tiên vào visit[0]
-        x[torch.arange(B), 0, target_codes] = 1.0
+        for i in range(B):
+            num_codes = torch.randint(1, 8, (1,))  # 1-7 codes mỗi visit
+            codes = torch.randperm(V)[:num_codes]
+            x[i, 0, codes] = 1.0
+        
 
         # chạy HALO
         hidden_states = self.halo.transformer(x)                     # (B, T, E)
