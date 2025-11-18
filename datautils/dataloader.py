@@ -48,7 +48,6 @@ class DataLoader:
     def __len__(self):
         return self.n_batches
 
-
 def get_train_test_loader(dataset_path, batch_size, device):
     """
     Load train/test dataloader cho cả 2 chế độ:
@@ -59,13 +58,21 @@ def get_train_test_loader(dataset_path, batch_size, device):
     # --- Xác định đường dẫn thật ---
     if "standard_hier" in dataset_path:
         data_dir = dataset_path  # đã là folder chứa train/test.npz
-        print(f"📦 [Dual Hierarchical] Using dataset at: {data_dir}")
+        
+        # 🎯 KIỂM TRA BALANCED DATA
+        balanced_train_path = os.path.join(data_dir, "train_balanced.npz")
+        if os.path.exists(balanced_train_path):
+            print(f"📦 [Dual Hierarchical - BALANCED] Using balanced dataset at: {data_dir}")
+            # Tạo dataset custom từ balanced data
+            dataset = _create_balanced_dataset(data_dir, device)
+        else:
+            print(f"📦 [Dual Hierarchical] Using dataset at: {data_dir}")
+            dataset = DatasetReal(data_dir, device=device)
+            
     else:
         data_dir = os.path.join(dataset_path, "standard", "real_data")
         print(f"📦 [Single Diagnosis] Using dataset at: {data_dir}")
-
-    # --- Load dataset ---
-    dataset = DatasetReal(data_dir, device=device)
+        dataset = DatasetReal(data_dir, device=device)
 
     # --- Tạo DataLoader ---
     train_loader = DataLoader(dataset.train_set, batch_size=batch_size, shuffle=True)
@@ -79,10 +86,64 @@ def get_train_test_loader(dataset_path, batch_size, device):
     return train_loader, test_loader, max_len
 
 
+def _create_balanced_dataset(data_dir, device):
+    """Tạo dataset từ balanced data"""
+    class BalancedDatasetReal:
+        def __init__(self, data_dir, device):
+            self.device = device
+            
+            # Load balanced train data
+            balanced_data = np.load(os.path.join(data_dir, "train_balanced.npz"))
+            self.train_set = self._create_data_tuple(balanced_data)
+            
+            # Load test data từ file gốc
+            test_data = np.load(os.path.join(data_dir, "test.npz"))
+            self.test_set = self._create_data_tuple(test_data)
+            
+            balanced_data.close()
+            test_data.close()
+        
+        def _create_data_tuple(self, data):
+            return (torch.from_numpy(data['x']).to(self.device), 
+                    torch.from_numpy(data['lens']).to(self.device))
+    
+    return BalancedDatasetReal(data_dir, device)
+
+
 def get_base_gru_train_loader(dataset_path, batch_size, device):
-    dataset = DatasetRealNext(os.path.join(dataset_path, 'standard', 'real_next'), device=device)
+    data_dir = os.path.join(dataset_path, 'standard', 'real_next')
+    
+    # 🎯 KIỂM TRA BALANCED REAL_NEXT
+    balanced_path = os.path.join(data_dir, "train_balanced.npz")
+    if os.path.exists(balanced_path):
+        print(f"📦 [BaseHALO - BALANCED] Using balanced real_next data")
+        # Tạo dataset custom từ balanced
+        dataset = _create_balanced_realnext_dataset(data_dir, device)
+    else:
+        dataset = DatasetRealNext(data_dir, device=device)
+    
     train_loader = DataLoader(dataset.train_set, shuffle=True, batch_size=batch_size)
     return train_loader
+
+
+def _create_balanced_realnext_dataset(data_dir, device):
+    """Tạo real_next dataset từ balanced data"""
+    class BalancedDatasetRealNext:
+        def __init__(self, data_dir, device):
+            self.device = device
+            
+            # Load balanced train data
+            balanced_data = np.load(os.path.join(data_dir, "train_balanced.npz"))
+            self.train_set = self._create_data_tuple(balanced_data)
+            
+            balanced_data.close()
+        
+        def _create_data_tuple(self, data):
+            return (torch.from_numpy(data['x']).to(self.device), 
+                    torch.from_numpy(data['lens']).to(self.device),
+                    torch.from_numpy(data['y']).to(self.device))
+    
+    return BalancedDatasetRealNext(data_dir, device)
 
 
 def load_meta_data(dataset_path):
