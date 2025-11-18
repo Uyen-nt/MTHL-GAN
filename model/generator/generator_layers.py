@@ -10,16 +10,29 @@ class HALOGeneratorCore(nn.Module):
     Core generator dựa trên HALO thay cho GRU.
     Sinh sequence multi-hot bằng Transformer + autoregressive head.
     """
-    def __init__(self, halo_model, code_num, hidden_dim, max_len, device=None):
+    def __init__(self, halo_model, code_num, hidden_dim, max_len, device=None, sparsity_threshold=0.1):
         super().__init__()
         self.halo = halo_model                     # HALOModel đã khởi tạo sẵn
         self.code_num = code_num
         self.hidden_dim = hidden_dim
         self.max_len = max_len
         self.device = device
+        self.sparsity_threshold = sparsity_threshold
 
         # ép chiều ẩn HALO (n_embd) về hidden_dim của MTGAN nếu khác
         self.proj = nn.Linear(self.halo.transformer.n_embd, hidden_dim)
+
+    def apply_sparsity(self, probs, threshold=None):
+        """Áp dụng sparsity để giảm số lượng codes"""
+        if threshold is None:
+            threshold = self.sparsity_threshold
+        
+        # Cách 1: Top-k sampling
+        k = int(probs.shape[-1] * 0.05)  # Giữ lại 5% codes có xác suất cao nhất
+        topk_vals, topk_indices = torch.topk(probs, k, dim=-1)
+        mask = torch.zeros_like(probs)
+        mask.scatter_(-1, topk_indices, 1.0)
+        return probs * mask
 
     def forward(self, target_codes, lens):
         """
@@ -43,6 +56,7 @@ class HALOGeneratorCore(nn.Module):
         # chạy HALO
         hidden_states = self.halo.transformer(x)                     # (B, T, E)
         code_probs = self.halo.ehr_head(hidden_states, x).sigmoid()  # (B, T-1, V)
+        code_probs = self.apply_sparsity(code_probs)
 
         # đệm timestep đầu cho khớp T
         probs = torch.zeros(B, T, V, device=device)
