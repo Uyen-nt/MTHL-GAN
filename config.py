@@ -63,8 +63,8 @@ def _parse_generate_setting(parser):
 
 def _parse_halo_setting(parser):
     group = parser.add_argument_group('halo', 'halo model setting')
-    group.add_argument('--halo_n_layer', default=6, type=int, help='Number of Transformer layers')
-    group.add_argument('--halo_n_embd', default=256, type=int, help='Embedding/hidden dimension')
+    group.add_argument('--halo_n_layer', default=4, type=int, help='Number of Transformer layers')
+    group.add_argument('--halo_n_embd', default=128, type=int, help='Embedding/hidden dimension')
     group.add_argument('--halo_n_head', default=8, type=int, help='Number of attention heads')
     group.add_argument('--halo_n_ctx', default=128, type=int, help='Context length / sequence length')
     group.add_argument('--halo_n_positions', default=128, type=int, help='Max positional embeddings')
